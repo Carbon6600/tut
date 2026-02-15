@@ -3,20 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>🚪 Контроль Проходу</title>
     <script type="module">
-        // Firebase SDK
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, get, update, remove, onValue, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, set, get, update, remove, onValue, child, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyC1fW9OoEMUTTkO7YI7MxfjL1-u9WvoZ0g",
             authDomain: "tur-app-53644.firebaseapp.com",
             databaseURL: "https://tur-app-53644-default-rtdb.europe-west1.firebasedatabase.app",
             projectId: "tur-app-53644",
-            storageBucket: "tur-app-53644.firebasestorage.app",
+            storageBucket: "tur-app-53644.appspot.com",
             messagingSenderId: "180955423979",
             appId: "1:180955423979:web:5c118e8bd178735e560aae",
             measurementId: "G-7PGQ1SY687"
@@ -25,7 +22,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Expose to global scope for non-module scripts
         window.firebaseDB = db;
         window.firebaseRef = ref;
         window.firebaseGet = get;
@@ -34,1009 +30,149 @@
         window.firebaseRemove = remove;
         window.firebaseOnValue = onValue;
         window.firebaseChild = child;
+        window.firebasePush = push;
+        window.firebaseServerTimestamp = serverTimestamp;
     </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        :root {
-            --primary: #667eea;
-            --secondary: #764ba2;
-            --success: #34c759;
-            --warning: #ff9500;
-            --danger: #ff3b30;
-            --info: #007aff;
-            --bg: #f2f2f7;
-        }
-
-        html, body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #000;
-            color: #333;
-            height: 100%;
-            width: 100%;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .app-container {
-            width: 100%;
-            height: 100%;
-            max-width: 430px;
-            margin: 0 auto;
-            background: var(--bg);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Login Screen */
-        .login-screen {
-            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
-        }
-
-        .water-bg {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 25%;
-            background: rgba(255,255,255,0.08);
-            border-radius: 50% 50% 0 0;
-            animation: wave 6s ease-in-out infinite;
-        }
-
-        @keyframes wave {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .login-logo {
-            font-size: 56px;
-            margin-bottom: 10px;
-            animation: float 3s ease-in-out infinite;
-            z-index: 10;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-
-        .login-title {
-            color: white;
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 30px;
-            z-index: 10;
-            text-align: center;
-        }
-
-        .pin-container {
-            background: rgba(255,255,255,0.98);
-            border-radius: 24px;
-            padding: 28px;
-            width: 300px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-
-        .water-fill {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(180deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.5) 100%);
-            transition: height 0.3s ease;
-            height: 0%;
-            z-index: 0;
-        }
-
-        .pin-display {
-            background: #f2f2f7;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 24px;
-            height: 64px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            border: 3px solid transparent;
-            position: relative;
-            z-index: 1;
-        }
-
-        .pin-dot {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: #d1d1d6;
-            transition: all 0.2s ease;
-        }
-
-        .pin-dot.filled {
-            background: var(--primary);
-            transform: scale(1.2);
-            box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
-        }
-
-        .pin-display.error {
-            border-color: var(--danger);
-            animation: shake 0.4s;
-        }
-
-        .pin-display.error .pin-dot.filled {
-            background: var(--danger);
-        }
-
-        .pin-display.success .pin-dot.filled {
-            background: var(--success);
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-8px); }
-            75% { transform: translateX(8px); }
-        }
-
-        .pin-keypad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .pin-btn {
-            aspect-ratio: 1;
-            border: none;
-            border-radius: 50%;
-            background: #e5e5ea;
-            color: #333;
-            font-size: 24px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s;
-        }
-
-        .pin-btn:active {
-            transform: scale(0.92);
-            background: #d1d1d6;
-        }
-
-        .pin-btn.clear {
-            background: var(--danger);
-            color: white;
-            font-size: 20px;
-        }
-
-        .pin-btn.enter {
-            background: var(--success);
-            color: white;
-            font-size: 24px;
-        }
-
-        /* Main App */
-        .main-app {
-            flex: 1;
-            display: none;
-            flex-direction: column;
-            background: var(--bg);
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .main-app.active {
-            display: flex;
-        }
-
-        /* Header */
-        .header {
-            background: linear-gradient(180deg, var(--primary), var(--secondary));
-            color: white;
-            padding: 50px 16px 12px;
-            flex-shrink: 0;
-            position: relative;
-        }
-
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .header h1 {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .datetime {
-            font-size: 14px;
-            opacity: 0.9;
-            font-weight: 500;
-        }
-
-        .user-badge {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-        }
-
-        .role-badge {
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.25);
-            text-transform: uppercase;
-            font-weight: 700;
-        }
-
-        /* Tab Navigation */
-        .tab-nav {
-            display: flex;
-            background: white;
-            margin: 8px 12px 0;
-            border-radius: 12px;
-            padding: 4px;
-            gap: 4px;
-            flex-shrink: 0;
-        }
-
-        .tab-btn {
-            flex: 1;
-            padding: 10px;
-            border: none;
-            background: transparent;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #666;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        .tab-btn.active {
-            background: var(--primary);
-            color: white;
-        }
-
-        /* Quick Actions */
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            padding: 8px 12px;
-            background: white;
-            margin: 8px 12px;
-            border-radius: 16px;
-            flex-shrink: 0;
-        }
-
-        .action-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 4px;
-            padding: 8px 2px;
-            border-radius: 12px;
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: all 0.15s;
-        }
-
-        .action-btn:active {
-            transform: scale(0.95);
-        }
-
-        .action-btn.active {
-            background: #f0f4ff;
-            border-color: var(--primary);
-        }
-
-        .action-icon {
-            font-size: 24px;
-            line-height: 1;
-        }
-
-        .action-label {
-            font-size: 10px;
-            font-weight: 600;
-            color: #333;
-            text-align: center;
-        }
-
-        /* Stats Bar */
-        .stats-bar {
-            display: flex;
-            gap: 8px;
-            padding: 0 12px 8px;
-            flex-shrink: 0;
-        }
-
-        .stat-pill {
-            flex: 1;
-            background: white;
-            border-radius: 12px;
-            padding: 8px 4px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
-        .stat-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .stat-label {
-            font-size: 9px;
-            color: #666;
-            font-weight: 500;
-        }
-
-        .stat-num {
-            font-size: 18px;
-            font-weight: 700;
-            color: #333;
-        }
-
-        /* Content Area */
-        .content-area {
-            flex: 1;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .tab-content {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            overflow-y: auto;
-            padding: 0 12px 80px;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s;
-        }
-
-        .tab-content.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        /* Personnel Section */
-        .section-title {
-            font-size: 12px;
-            font-weight: 700;
-            color: #8e8e93;
-            text-transform: uppercase;
-            padding: 12px 4px 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .selection-hint {
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 600;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .selection-hint.visible {
-            opacity: 1;
-        }
-
-        .person-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-        }
-
-        .person-card {
-            background: white;
-            border-radius: 16px;
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .person-card:active {
-            transform: scale(0.98);
-        }
-
-        .person-card.selected {
-            border-color: var(--primary);
-            background: #f8f9ff;
-        }
-
-        .person-card.selected::after {
-            content: '✓';
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 24px;
-            height: 24px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        .person-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .person-avatar {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 16px;
-            flex-shrink: 0;
-        }
-
-        .person-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .person-name {
-            font-weight: 600;
-            font-size: 14px;
-            color: #333;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .person-time {
-            font-size: 11px;
-            color: #8e8e93;
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 6px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-            color: white;
-            align-self: flex-start;
-        }
-
-        /* Bottom Toolbar */
-        .bottom-toolbar {
-            position: fixed;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: none;
-            gap: 12px;
-            z-index: 300;
-            background: rgba(255,255,255,0.98);
-            padding: 8px;
-            border-radius: 28px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-
-        .bottom-toolbar.visible {
-            display: flex;
-        }
-
-        .tool-btn {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            background: #f2f2f7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .tool-btn:active {
-            transform: scale(0.9);
-        }
-
-        .tool-btn.primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .tool-btn.danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        /* Modals */
-        .sheet-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.4);
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-            z-index: 400;
-        }
-
-        .sheet-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .bottom-sheet {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: white;
-            border-radius: 24px 24px 0 0;
-            padding: 20px;
-            transform: translateY(100%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 500;
-            max-height: 70vh;
-        }
-
-        .bottom-sheet.active {
-            transform: translateY(0);
-        }
-
-        .sheet-handle {
-            width: 40px;
-            height: 5px;
-            background: #c7c7cc;
-            border-radius: 3px;
-            margin: 0 auto 20px;
-        }
-
-        .sheet-title {
-            font-size: 18px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-align: center;
-            color: #333;
-        }
-
-        .status-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .status-opt {
-            aspect-ratio: 1;
-            border-radius: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            border: 3px solid transparent;
-            transition: all 0.2s;
-        }
-
-        .status-opt:active {
-            transform: scale(0.95);
-        }
-
-        .status-opt.selected {
-            border-color: var(--primary);
-            transform: scale(1.05);
-        }
-
-        .status-opt .icon {
-            font-size: 28px;
-        }
-
-        .sheet-input {
-            width: 100%;
-            padding: 14px;
-            border: 2px solid #e5e5ea;
-            border-radius: 12px;
-            font-size: 16px;
-            margin-bottom: 12px;
-            outline: none;
-        }
-
-        .sheet-input:focus {
-            border-color: var(--primary);
-        }
-
-        .sheet-btn {
-            width: 100%;
-            padding: 16px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 14px;
-            font-size: 17px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .sheet-btn:active {
-            transform: scale(0.98);
-        }
-
-        /* Admin Form */
-        .admin-form {
-            background: white;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 12px;
-        }
-
-        .form-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .form-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #333;
-        }
-
-        .form-mode {
-            font-size: 12px;
-            color: var(--primary);
-            font-weight: 600;
-            background: #f0f4ff;
-            padding: 4px 10px;
-            border-radius: 12px;
-        }
-
-        .form-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #8e8e93;
-            text-transform: uppercase;
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 14px;
-            border: 2px solid #e5e5ea;
-            border-radius: 12px;
-            font-size: 16px;
-            margin-bottom: 12px;
-            outline: none;
-        }
-
-        .form-input:focus {
-            border-color: var(--primary);
-        }
-
-        .role-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-
-        .role-btn {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e5e5ea;
-            border-radius: 12px;
-            background: white;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .role-btn.selected {
-            border-color: var(--primary);
-            background: #f0f4ff;
-            color: var(--primary);
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .form-btn {
-            flex: 1;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-        }
-
-        .form-btn.primary {
-            background: var(--primary);
-            color: white;
-        }
-
-        .form-btn.secondary {
-            background: #f2f2f7;
-            color: #333;
-        }
-
-        .form-btn.danger {
-            background: var(--danger);
-            color: white;
-        }
-
-        /* User List */
-        .user-list {
-            background: white;
-            border-radius: 16px;
-            padding: 16px;
-        }
-
-        .user-list-header {
-            font-size: 12px;
-            font-weight: 700;
-            color: #8e8e93;
-            text-transform: uppercase;
-            margin-bottom: 12px;
-        }
-
-        .user-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 14px 0;
-            border-bottom: 1px solid #f0f0f0;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .user-item:last-child {
-            border-bottom: none;
-        }
-
-        .user-item:active {
-            background: #f8f9ff;
-            margin: 0 -16px;
-            padding-left: 16px;
-            padding-right: 16px;
-        }
-
-        .user-item-info {
-            flex: 1;
-        }
-
-        .user-item-name {
-            font-weight: 600;
-            font-size: 15px;
-            color: #333;
-            margin-bottom: 2px;
-        }
-
-        .user-item-pin {
-            font-size: 12px;
-            color: #8e8e93;
-        }
-
-        .user-item-role {
-            font-size: 11px;
-            padding: 6px 12px;
-            border-radius: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .role-admin {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .role-editor {
-            background: #e3f2fd;
-            color: #1565c0;
-        }
-
-        .role-reader {
-            background: #f5f5f5;
-            color: #616161;
-        }
-
-        .edit-hint {
-            font-size: 11px;
-            color: var(--primary);
-            margin-left: 8px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .user-item:hover .edit-hint {
-            opacity: 1;
-        }
-
-        /* Toast */
-        .toast {
-            position: fixed;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.85);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 24px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 2000;
-            opacity: 0;
-            transition: all 0.3s;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-        }
-
-        .toast.show {
-            opacity: 1;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* Loading */
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(255,255,255,0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 3000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.3s;
-        }
-
-        .loading-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #e5e5ea;
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #8e8e93;
-        }
-
-        .empty-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-
-        .empty-text {
-            font-size: 15px;
-            font-weight: 500;
-        }
-
-        /* Sync indicator */
-        .sync-indicator {
-            position: fixed;
-            top: 12px;
-            right: 12px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: var(--success);
-            z-index: 100;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .sync-indicator.active {
-            opacity: 1;
-            animation: pulse 1.5s infinite;
-        }
-
-        .sync-indicator.syncing {
-            background: var(--warning);
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --primary: #667eea; --secondary: #764ba2; --success: #34c759; --warning: #ff9500; --danger: #ff3b30; --info: #007aff; --bg: #f2f2f7; }
+        html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #333; height: 100%; width: 100%; overflow: hidden; }
+        .app-container { width: 100%; height: 100%; max-width: 430px; margin: 0 auto; background: var(--bg); display: flex; flex-direction: column; }
+        .login-screen { background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; position: relative; }
+        .water-bg { position: absolute; bottom: 0; left: 0; right: 0; height: 25%; background: rgba(255,255,255,0.08); border-radius: 50% 50% 0 0; animation: wave 6s ease-in-out infinite; }
+        @keyframes wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .login-logo { font-size: 56px; margin-bottom: 10px; animation: float 3s ease-in-out infinite; z-index: 10; }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .login-title { color: white; font-size: 22px; font-weight: 700; margin-bottom: 30px; z-index: 10; text-align: center; }
+        .pin-container { background: rgba(255,255,255,0.98); border-radius: 24px; padding: 28px; width: 300px; position: relative; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        .water-fill { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(180deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.5) 100%); transition: height 0.3s ease; height: 0%; z-index: 0; }
+        .pin-display { background: #f2f2f7; border-radius: 16px; padding: 20px; margin-bottom: 24px; height: 64px; display: flex; align-items: center; justify-content: center; gap: 12px; border: 3px solid transparent; position: relative; z-index: 1; }
+        .pin-dot { width: 16px; height: 16px; border-radius: 50%; background: #d1d1d6; transition: all 0.2s ease; }
+        .pin-dot.filled { background: var(--primary); transform: scale(1.2); box-shadow: 0 0 10px rgba(102, 126, 234, 0.5); }
+        .pin-display.error { border-color: var(--danger); animation: shake 0.4s; }
+        .pin-display.error .pin-dot.filled { background: var(--danger); }
+        .pin-display.success .pin-dot.filled { background: var(--success); }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; position: relative; z-index: 1; }
+        .pin-btn { aspect-ratio: 1; border: none; border-radius: 50%; background: #e5e5ea; color: #333; font-size: 24px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .pin-btn:active { transform: scale(0.92); background: #d1d1d6; }
+        .pin-btn.clear { background: var(--danger); color: white; font-size: 20px; }
+        .pin-btn.enter { background: var(--success); color: white; font-size: 24px; }
+        .main-app { flex: 1; display: none; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
+        .main-app.active { display: flex; }
+        .header { background: linear-gradient(180deg, var(--primary), var(--secondary)); color: white; padding: 50px 16px 12px; flex-shrink: 0; }
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .datetime { font-size: 14px; opacity: 0.9; font-weight: 500; }
+        .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .role-badge { font-size: 10px; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,0.25); text-transform: uppercase; font-weight: 700; }
+        .tab-nav { display: flex; background: white; margin: 8px 12px 0; border-radius: 12px; padding: 4px; gap: 4px; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 10px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px 12px; background: white; margin: 8px 12px; border-radius: 16px; flex-shrink: 0; }
+        .action-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+        .action-btn:active { transform: scale(0.95); }
+        .action-btn.active { background: #f0f4ff; border-color: var(--primary); }
+        .action-icon { font-size: 24px; line-height: 1; }
+        .action-label { font-size: 10px; font-weight: 600; color: #333; text-align: center; }
+        .stats-bar { display: flex; gap: 8px; padding: 0 12px 8px; flex-shrink: 0; }
+        .stat-pill { flex: 1; background: white; border-radius: 12px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .stat-label { font-size: 9px; color: #666; font-weight: 500; }
+        .stat-num { font-size: 18px; font-weight: 700; color: #333; }
+        .content-area { flex: 1; overflow: hidden; position: relative; }
+        .tab-content { position: absolute; inset: 0; overflow-y: auto; padding: 0 12px 80px; opacity: 0; visibility: hidden; transition: opacity 0.2s; }
+        .tab-content.active { opacity: 1; visibility: visible; }
+        .section-title { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; padding: 12px 4px 8px; display: flex; justify-content: space-between; align-items: center; }
+        .selection-hint { font-size: 12px; color: var(--primary); font-weight: 600; opacity: 0; transition: opacity 0.2s; }
+        .selection-hint.visible { opacity: 1; }
+        .person-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .person-card { background: white; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; position: relative; overflow: hidden; }
+        .person-card:active { transform: scale(0.98); }
+        .person-card.selected { border-color: var(--primary); background: #f8f9ff; }
+        .person-card.selected::after { content: '✓'; position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+        .person-header { display: flex; align-items: center; gap: 10px; }
+        .person-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 16px; flex-shrink: 0; }
+        .person-info { flex: 1; min-width: 0; }
+        .person-name { font-weight: 600; font-size: 14px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .person-time { font-size: 11px; color: #8e8e93; }
+        .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white; align-self: flex-start; }
+        .bottom-toolbar { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: none; gap: 12px; z-index: 300; background: rgba(255,255,255,0.98); padding: 8px; border-radius: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+        .bottom-toolbar.visible { display: flex; }
+        .tool-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: #f2f2f7; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: all 0.2s; }
+        .tool-btn:active { transform: scale(0.9); }
+        .tool-btn.primary { background: var(--primary); color: white; }
+        .tool-btn.danger { background: var(--danger); color: white; }
+        .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; visibility: hidden; transition: all 0.2s; z-index: 400; }
+        .sheet-overlay.active { opacity: 1; visibility: visible; }
+        .bottom-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: white; border-radius: 24px 24px 0 0; padding: 20px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 500; max-height: 70vh; }
+        .bottom-sheet.active { transform: translateY(0); }
+        .sheet-handle { width: 40px; height: 5px; background: #c7c7cc; border-radius: 3px; margin: 0 auto 20px; }
+        .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; text-align: center; color: #333; }
+        .status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+        .status-opt { aspect-ratio: 1; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
+        .status-opt:active { transform: scale(0.95); }
+        .status-opt.selected { border-color: var(--primary); transform: scale(1.05); }
+        .status-opt .icon { font-size: 28px; }
+        .sheet-input { width: 100%; padding: 14px; border: 2px solid #e5e5ea; border-radius: 12px; font-size: 16px; margin-bottom: 12px; outline: none; }
+        .sheet-input:focus { border-color: var(--primary); }
+        .sheet-btn { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 17px; font-weight: 600; cursor: pointer; }
+        .admin-form { background: white; border-radius: 16px; padding: 20px; margin-bottom: 12px; }
+        .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .form-title { font-size: 16px; font-weight: 700; color: #333; }
+        .form-mode { font-size: 12px; color: var(--primary); font-weight: 600; background: #f0f4ff; padding: 4px 10px; border-radius: 12px; }
+        .form-label { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; margin-bottom: 8px; display: block; }
+        .form-input { width: 100%; padding: 14px; border: 2px solid #e5e5ea; border-radius: 12px; font-size: 16px; margin-bottom: 12px; outline: none; }
+        .form-input:focus { border-color: var(--primary); }
+        .role-selector { display: flex; gap: 10px; margin-bottom: 16px; }
+        .role-btn { flex: 1; padding: 12px; border: 2px solid #e5e5ea; border-radius: 12px; background: white; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .role-btn.selected { border-color: var(--primary); background: #f0f4ff; color: var(--primary); }
+        .form-actions { display: flex; gap: 10px; }
+        .form-btn { flex: 1; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; }
+        .form-btn.primary { background: var(--primary); color: white; }
+        .form-btn.secondary { background: #f2f2f7; color: #333; }
+        .form-btn.danger { background: var(--danger); color: white; }
+        .user-list { background: white; border-radius: 16px; padding: 16px; }
+        .user-list-header { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; margin-bottom: 12px; }
+        .user-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: all 0.2s; }
+        .user-item:last-child { border-bottom: none; }
+        .user-item:active { background: #f8f9ff; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+        .user-item-info { flex: 1; }
+        .user-item-name { font-weight: 600; font-size: 15px; color: #333; margin-bottom: 2px; }
+        .user-item-pin { font-size: 12px; color: #8e8e93; }
+        .user-item-role { font-size: 11px; padding: 6px 12px; border-radius: 12px; font-weight: 600; text-transform: uppercase; }
+        .role-admin { background: #ffebee; color: #c62828; }
+        .role-editor { background: #e3f2fd; color: #1565c0; }
+        .role-reader { background: #f5f5f5; color: #616161; }
+        .edit-hint { font-size: 11px; color: var(--primary); margin-left: 8px; opacity: 0; transition: opacity 0.2s; }
+        .user-item:hover .edit-hint { opacity: 1; }
+        .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 2000; opacity: 0; transition: all 0.3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+        .hidden { display: none !important; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 3000; opacity: 0; visibility: hidden; transition: all 0.3s; }
+        .loading-overlay.active { opacity: 1; visibility: visible; }
+        .spinner { width: 48px; height: 48px; border: 4px solid #e5e5ea; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sync-indicator { position: fixed; top: 12px; right: 12px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); z-index: 100; opacity: 0; transition: opacity 0.3s; }
+        .sync-indicator.active { opacity: 1; animation: pulse 1.5s infinite; }
+        .sync-indicator.syncing { background: var(--warning); }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <!-- Loading -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-    </div>
-
-    <!-- Sync Indicator -->
+    <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
     <div class="sync-indicator" id="syncIndicator"></div>
 
-    <!-- Login -->
     <div class="login-screen" id="loginScreen">
         <div class="water-bg"></div>
         <div class="login-logo">🛡️</div>
         <div class="login-title">Контроль Проходу</div>
-        
         <div class="pin-container">
             <div class="water-fill" id="waterFill"></div>
             <div class="pin-display" id="pinDisplay">
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
-                <div class="pin-dot"></div>
+                <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
             </div>
-            
             <div class="pin-keypad">
                 <button class="pin-btn" onclick="addPin(1)">1</button>
                 <button class="pin-btn" onclick="addPin(2)">2</button>
@@ -1054,9 +190,7 @@
         </div>
     </div>
 
-    <!-- Main App -->
     <div class="main-app" id="mainApp">
-        <!-- Header -->
         <div class="header">
             <div class="header-top">
                 <h1>🏢 Прохідна</h1>
@@ -1068,107 +202,52 @@
             </div>
         </div>
 
-        <!-- Tab Navigation -->
         <div class="tab-nav" id="tabNav">
-            <button class="tab-btn active" onclick="switchTab('personnel')">
-                <span>👥</span> Персонал
-            </button>
-            <button class="tab-btn" onclick="switchTab('stats')">
-                <span>📊</span> Статистика
-            </button>
-            <button class="tab-btn" onclick="switchTab('admin')">
-                <span>⚙️</span> Управління
-            </button>
+            <button class="tab-btn active" onclick="switchTab('personnel')"><span>👥</span> Персонал</button>
+            <button class="tab-btn" onclick="switchTab('stats')"><span>📊</span> Статистика</button>
+            <button class="tab-btn" onclick="switchTab('admin')"><span>⚙️</span> Управління</button>
         </div>
 
-        <!-- Quick Actions -->
         <div class="quick-actions" id="quickActions">
-            <div class="action-btn" id="btn-in" onclick="applyQuickStatus('in', '🏢 В приміщенні')">
-                <span class="action-icon">🏢</span>
-                <span class="action-label">В приміщенні</span>
-            </div>
-            <div class="action-btn" id="btn-vz" onclick="applyQuickStatus('vz', '📞 ВЗ')">
-                <span class="action-icon">📞</span>
-                <span class="action-label">ВЗ</span>
-            </div>
-            <div class="action-btn" id="btn-rz" onclick="applyQuickStatus('rz', '📋 РЗ')">
-                <span class="action-icon">📋</span>
-                <span class="action-label">РЗ</span>
-            </div>
-            <div class="action-btn" id="btn-lunch" onclick="applyQuickStatus('lunch', '🍽️ Обід')">
-                <span class="action-icon">🍽️</span>
-                <span class="action-label">Обід</span>
-            </div>
-            <div class="action-btn" id="btn-custom" onclick="openCustomStatus()">
-                <span class="action-icon">⚡</span>
-                <span class="action-label">Інше</span>
-            </div>
+            <div class="action-btn" id="btn-in" onclick="applyQuickStatus('in', '🏢 В приміщенні')"><span class="action-icon">🏢</span><span class="action-label">В приміщенні</span></div>
+            <div class="action-btn" id="btn-vz" onclick="applyQuickStatus('vz', '📞 ВЗ')"><span class="action-icon">📞</span><span class="action-label">ВЗ</span></div>
+            <div class="action-btn" id="btn-rz" onclick="applyQuickStatus('rz', '📋 РЗ')"><span class="action-icon">📋</span><span class="action-label">РЗ</span></div>
+            <div class="action-btn" id="btn-lunch" onclick="applyQuickStatus('lunch', '🍽️ Обід')"><span class="action-icon">🍽️</span><span class="action-label">Обід</span></div>
+            <div class="action-btn" id="btn-custom" onclick="openCustomStatus()"><span class="action-icon">⚡</span><span class="action-label">Інше</span></div>
         </div>
 
-        <!-- Stats Bar -->
         <div class="stats-bar">
-            <div class="stat-pill">
-                <div class="stat-dot" style="background: #333;"></div>
-                <span class="stat-label">Всього</span>
-                <span class="stat-num" id="statTotal">0</span>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-dot" style="background: var(--success);"></div>
-                <span class="stat-label">В будівлі</span>
-                <span class="stat-num" id="statIn">0</span>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-dot" style="background: var(--info);"></div>
-                <span class="stat-label">На ВЗ</span>
-                <span class="stat-num" id="statVz">0</span>
-            </div>
-            <div class="stat-pill">
-                <div class="stat-dot" style="background: var(--danger);"></div>
-                <span class="stat-label">Відсутні</span>
-                <span class="stat-num" id="statOut">0</span>
-            </div>
+            <div class="stat-pill"><div class="stat-dot" style="background: #333;"></div><span class="stat-label">Всього</span><span class="stat-num" id="statTotal">0</span></div>
+            <div class="stat-pill"><div class="stat-dot" style="background: var(--success);"></div><span class="stat-label">В будівлі</span><span class="stat-num" id="statIn">0</span></div>
+            <div class="stat-pill"><div class="stat-dot" style="background: var(--info);"></div><span class="stat-label">На ВЗ</span><span class="stat-num" id="statVz">0</span></div>
+            <div class="stat-pill"><div class="stat-dot" style="background: var(--danger);"></div><span class="stat-label">Відсутні</span><span class="stat-num" id="statOut">0</span></div>
         </div>
 
-        <!-- Content Area -->
         <div class="content-area">
-            <!-- Personnel Tab -->
             <div class="tab-content active" id="tab-personnel">
-                <div class="section-title">
-                    <span>ПЕРСОНАЛ</span>
-                    <span class="selection-hint" id="selectionHint">Тапайте для вибору</span>
-                </div>
+                <div class="section-title"><span>ПЕРСОНАЛ</span><span class="selection-hint" id="selectionHint">Тапайте для вибору</span></div>
                 <div class="person-grid" id="personGrid"></div>
             </div>
 
-            <!-- Statistics Tab -->
             <div class="tab-content" id="tab-stats">
                 <div class="stats-container" id="statsContainer"></div>
             </div>
 
-            <!-- Admin Tab -->
             <div class="tab-content" id="tab-admin">
-                <!-- Unified Form -->
                 <div class="admin-form">
                     <div class="form-header">
                         <span class="form-title" id="formTitle">➕ Новий користувач</span>
                         <span class="form-mode" id="formMode">створення</span>
                     </div>
-                    
-                    <input type="hidden" id="editingUserPin">
-                    
-                    <label class="form-label">ПІБ</label>
+                    <input type="hidden" id="editingUserId">
                     <input type="text" class="form-input" id="userName" placeholder="Прізвище Ім'я По-батькові">
-                    
-                    <label class="form-label">PIN (4 цифри)</label>
-                    <input type="text" class="form-input" id="userPin" placeholder="1234" maxlength="4">
-                    
+                    <input type="text" class="form-input" id="userPin" placeholder="PIN (4 цифри)" maxlength="4">
                     <label class="form-label">Роль</label>
                     <div class="role-selector">
                         <button class="role-btn selected" onclick="setRole('admin')" data-role="admin">🛡️ Адмін</button>
                         <button class="role-btn" onclick="setRole('editor')" data-role="editor">✏️ Редактор</button>
                         <button class="role-btn" onclick="setRole('reader')" data-role="reader">👁️ Читач</button>
                     </div>
-                    
                     <div class="form-actions">
                         <button class="form-btn primary" onclick="saveUser()" id="saveBtn">➕ Створити</button>
                         <button class="form-btn secondary hidden" onclick="cancelEdit()" id="cancelBtn">Скасувати</button>
@@ -1176,7 +255,6 @@
                     </div>
                 </div>
 
-                <!-- User List -->
                 <div class="user-list">
                     <div class="user-list-header">👤 Користувачі системи</div>
                     <div id="adminList"></div>
@@ -1191,59 +269,30 @@
     </div>
 </div>
 
-<!-- Bottom Toolbar -->
 <div class="bottom-toolbar" id="toolbar">
-    <button class="tool-btn danger" onclick="clearSelection()" title="Скасувати">✕</button>
-    <button class="tool-btn primary" onclick="openBulkSheet()" title="Змінити статус">📝</button>
-    <span style="display: flex; align-items: center; padding: 0 8px; font-size: 14px; font-weight: 600; color: #333;" id="selectedCount">0</span>
+    <button class="tool-btn danger" onclick="clearSelection()">✕</button>
+    <button class="tool-btn primary" onclick="openBulkSheet()">📝</button>
+    <span style="display: flex; align-items: center; padding: 0 8px; font-size: 14px; font-weight: 600;" id="selectedCount">0</span>
 </div>
 
-<!-- Status Sheet -->
 <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheet()"></div>
 <div class="bottom-sheet" id="statusSheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title" id="sheetTitle">Змінити статус</div>
-    
     <div class="status-grid">
-        <div class="status-opt" onclick="selectStatus('in', '🏢 В приміщенні')" style="background: #e8f5e9;">
-            <span class="icon">🏢</span>
-            <span>В приміщенні</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('vz', '📞 ВЗ')" style="background: #e3f2fd;">
-            <span class="icon">📞</span>
-            <span>ВЗ</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('rz', '📋 РЗ')" style="background: #fff3e0;">
-            <span class="icon">📋</span>
-            <span>РЗ</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('lunch', '🍽️ Обід')" style="background: #fce4ec;">
-            <span class="icon">🍽️</span>
-            <span>Обід</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('meeting', '👥 Нарада')" style="background: #f3e5f5;">
-            <span class="icon">👥</span>
-            <span>Нарада</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('home', '🏠 Додому')" style="background: #ffebee;">
-            <span class="icon">🏠</span>
-            <span>Додому</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('hospital', '🏥 Лікарня')" style="background: #e0f2f1;">
-            <span class="icon">🏥</span>
-            <span>Лікарня</span>
-        </div>
-        <div class="status-opt" onclick="selectStatus('trip', '✈️ Відрядження')" style="background: #fff8e1;">
-            <span class="icon">✈️</span>
-            <span>Відрядження</span>
-        </div>
+        <div class="status-opt" onclick="selectStatus('in', '🏢 В приміщенні')" style="background: #e8f5e9;"><span class="icon">🏢</span><span>В приміщенні</span></div>
+        <div class="status-opt" onclick="selectStatus('vz', '📞 ВЗ')" style="background: #e3f2fd;"><span class="icon">📞</span><span>ВЗ</span></div>
+        <div class="status-opt" onclick="selectStatus('rz', '📋 РЗ')" style="background: #fff3e0;"><span class="icon">📋</span><span>РЗ</span></div>
+        <div class="status-opt" onclick="selectStatus('lunch', '🍽️ Обід')" style="background: #fce4ec;"><span class="icon">🍽️</span><span>Обід</span></div>
+        <div class="status-opt" onclick="selectStatus('meeting', '👥 Нарада')" style="background: #f3e5f5;"><span class="icon">👥</span><span>Нарада</span></div>
+        <div class="status-opt" onclick="selectStatus('home', '🏠 Додому')" style="background: #ffebee;"><span class="icon">🏠</span><span>Додому</span></div>
+        <div class="status-opt" onclick="selectStatus('hospital', '🏥 Лікарня')" style="background: #e0f2f1;"><span class="icon">🏥</span><span>Лікарня</span></div>
+        <div class="status-opt" onclick="selectStatus('trip', '✈️ Відрядження')" style="background: #fff8e1;"><span class="icon">✈️</span><span>Відрядження</span></div>
     </div>
-
     <input type="text" class="sheet-input" id="sheetCustom" placeholder="Свій варіант...">
     <button class="sheet-btn" onclick="applyStatus()">Підтвердити зміни</button>
 </div>
 
-<!-- Custom Status Sheet -->
 <div class="bottom-sheet" id="customStatusSheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title">⚡ Швидкий статус</div>
@@ -1255,7 +304,7 @@
 
 <script>
 // Global variables
-let db, dbRef, dbGet, dbSet, dbUpdate, dbRemove, dbOnValue, dbChild;
+let db, dbRef, dbGet, dbSet, dbUpdate, dbRemove, dbOnValue, dbChild, dbPush, dbServerTimestamp;
 let currentUser = null;
 let currentPin = '';
 let selectedRole = 'admin';
@@ -1266,13 +315,20 @@ let sheetText = '';
 let editingUser = null;
 let users = [];
 let personnel = [];
+let usersMap = {}; // uid -> user data for quick lookup
 let isFirstLogin = false;
 
-// Initialize Firebase when ready
+// Initialize Firebase
 window.addEventListener('load', async () => {
-    // Wait for Firebase SDK
-    while (!window.firebaseDB) {
+    let attempts = 0;
+    while (!window.firebaseDB && attempts < 50) {
         await new Promise(r => setTimeout(r, 100));
+        attempts++;
+    }
+    
+    if (!window.firebaseDB) {
+        showToast('⛔ Помилка завантаження Firebase');
+        return;
     }
     
     db = window.firebaseDB;
@@ -1283,15 +339,14 @@ window.addEventListener('load', async () => {
     dbRemove = window.firebaseRemove;
     dbOnValue = window.firebaseOnValue;
     dbChild = window.firebaseChild;
+    dbPush = window.firebasePush;
+    dbServerTimestamp = window.firebaseServerTimestamp;
     
-    // Check if first login
     await checkFirstLogin();
-    
-    // Setup real-time listeners
     setupListeners();
 });
 
-// Check if first login (no admin exists)
+// Check first login - create admin with PIN 1111
 async function checkFirstLogin() {
     showLoading(true);
     try {
@@ -1299,51 +354,99 @@ async function checkFirstLogin() {
         const snapshot = await dbGet(usersRef);
         
         if (!snapshot.exists()) {
-            // First login - create admin with PIN 1111
             isFirstLogin = true;
+            const adminUid = generateUid();
             const adminUser = {
+                uid: adminUid,
                 pin: '1111',
                 name: 'Адміністратор',
                 role: 'admin',
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                active: true
             };
-            await dbSet(usersRef, { [adminUser.pin]: adminUser });
+            
+            // Create user and personnel records
+            await dbSet(dbRef(db, `users/${adminUid}`), adminUser);
+            await createPersonnelRecord(adminUid, adminUser.name);
+            
             showToast('✅ Створено адміністратора з PIN 1111');
         }
     } catch (error) {
-        console.error('Error checking first login:', error);
+        console.error('Error:', error);
         showToast('⛔ Помилка з\'єднання');
     } finally {
         showLoading(false);
     }
 }
 
-// Setup real-time database listeners
+// Generate unique ID
+function generateUid() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+}
+
+// Create personnel record linked to user
+async function createPersonnelRecord(userId, userName) {
+    const personnelId = generateUid();
+    const personnelData = {
+        pid: personnelId,
+        userId: userId,  // Link to users node
+        name: userName,  // Denormalized for display
+        current: {
+            status: 'out',
+            statusText: '⚪ Не на роботі',
+            since: new Date().toISOString()
+        },
+        history: {},  // Date -> array of status changes
+        stats: {
+            totalWorkTime: 0,
+            lastCalculated: null
+        },
+        createdAt: new Date().toISOString()
+    };
+    
+    await dbSet(dbRef(db, `personnel/${personnelId}`), personnelData);
+    return personnelId;
+}
+
+// Setup real-time listeners
 function setupListeners() {
-    // Listen to users
+    // Users listener
     const usersRef = dbRef(db, 'users');
     dbOnValue(usersRef, (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
-            users = Object.values(data);
+            users = Object.values(data).filter(u => u.active !== false);
+            usersMap = {};
+            users.forEach(u => {
+                usersMap[u.uid] = u;
+                usersMap[u.pin] = u; // Also index by PIN for login
+            });
+            
             if (document.getElementById('mainApp').classList.contains('active')) {
                 renderAdminList();
             }
         } else {
             users = [];
+            usersMap = {};
         }
     });
-    
-    // Listen to personnel
+
+    // Personnel listener
     const personnelRef = dbRef(db, 'personnel');
     dbOnValue(personnelRef, (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
             personnel = Object.values(data);
+            // Enrich with user data
+            personnel.forEach(p => {
+                if (usersMap[p.userId]) {
+                    p.userData = usersMap[p.userId];
+                }
+            });
         } else {
-            // Initialize with empty array or default personnel
             personnel = [];
         }
+        
         if (document.getElementById('mainApp').classList.contains('active')) {
             renderGrid();
             updateStats();
@@ -1351,55 +454,46 @@ function setupListeners() {
     });
 }
 
-// Loading indicator
+// Helper functions
 function showLoading(show) {
     const el = document.getElementById('loadingOverlay');
     if (el) el.classList.toggle('active', show);
 }
 
-// Sync indicator
 function showSync(syncing) {
     const el = document.getElementById('syncIndicator');
     if (el) {
         el.classList.toggle('active', true);
         el.classList.toggle('syncing', syncing);
-        if (!syncing) {
-            setTimeout(() => el.classList.remove('active'), 1000);
-        }
+        if (!syncing) setTimeout(() => el.classList.remove('active'), 1000);
     }
 }
 
-// Clock
 function updateTime() {
     const now = new Date();
-    const el = document.getElementById('currentTime');
-    if (el) el.textContent = now.toLocaleTimeString('uk-UA', {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('currentTime').textContent = now.toLocaleTimeString('uk-UA', {hour:'2-digit',minute:'2-digit'});
 }
 setInterval(updateTime, 1000);
 updateTime();
 
-// PIN Functions
+// PIN functions
 function addPin(num) {
     if (currentPin.length < 4) {
         currentPin += num;
         updatePin();
-        const fill = document.getElementById('waterFill');
-        if (fill) fill.style.height = (currentPin.length / 4 * 100) + '%';
+        document.getElementById('waterFill').style.height = (currentPin.length / 4 * 100) + '%';
     }
 }
 
 function clearPin() {
     currentPin = currentPin.slice(0, -1);
     updatePin();
-    const fill = document.getElementById('waterFill');
-    if (fill) fill.style.height = (currentPin.length / 4 * 100) + '%';
-    const disp = document.getElementById('pinDisplay');
-    if (disp) disp.classList.remove('error');
+    document.getElementById('waterFill').style.height = (currentPin.length / 4 * 100) + '%';
+    document.getElementById('pinDisplay').classList.remove('error');
 }
 
 function updatePin() {
-    const dots = document.querySelectorAll('.pin-dot');
-    dots.forEach((dot, i) => {
+    document.querySelectorAll('.pin-dot').forEach((dot, i) => {
         dot.classList.toggle('filled', i < currentPin.length);
     });
 }
@@ -1407,28 +501,20 @@ function updatePin() {
 async function checkPin() {
     if (currentPin.length !== 4) return;
     
-    const user = users.find(u => u.pin === currentPin);
-    if (user) {
-        const disp = document.getElementById('pinDisplay');
-        const fill = document.getElementById('waterFill');
-        if (disp) disp.classList.add('success');
-        if (fill) fill.style.height = '100%';
-        
+    const user = usersMap[currentPin]; // Lookup by PIN
+    if (user && user.active !== false) {
+        document.getElementById('pinDisplay').classList.add('success');
+        document.getElementById('waterFill').style.height = '100%';
         setTimeout(() => login(user), 400);
     } else {
-        const disp = document.getElementById('pinDisplay');
-        const fill = document.getElementById('waterFill');
-        if (disp) disp.classList.add('error');
-        if (fill) fill.style.background = 'rgba(255, 59, 48, 0.4)';
-        
+        document.getElementById('pinDisplay').classList.add('error');
+        document.getElementById('waterFill').style.background = 'rgba(255, 59, 48, 0.4)';
         setTimeout(() => {
             currentPin = '';
             updatePin();
-            if (disp) disp.classList.remove('error');
-            if (fill) {
-                fill.style.height = '0%';
-                fill.style.background = '';
-            }
+            document.getElementById('pinDisplay').classList.remove('error');
+            document.getElementById('waterFill').style.height = '0%';
+            document.getElementById('waterFill').style.background = '';
         }, 600);
     }
 }
@@ -1436,29 +522,18 @@ async function checkPin() {
 function login(user) {
     currentUser = user;
     
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    const headerName = document.getElementById('headerName');
-    const headerRole = document.getElementById('headerRole');
-    const quickActions = document.getElementById('quickActions');
-    const toolbar = document.getElementById('toolbar');
-    
-    if (loginScreen) loginScreen.style.display = 'none';
-    if (mainApp) {
-        mainApp.style.display = 'flex';
-        mainApp.classList.add('active');
-    }
-    
-    if (headerName) headerName.textContent = user.name.split(' ')[0];
-    if (headerRole) headerRole.textContent = user.role;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').classList.add('active');
+    document.getElementById('headerName').textContent = user.name.split(' ')[0];
+    document.getElementById('headerRole').textContent = user.role;
     
     if (user.role === 'reader') {
-        if (quickActions) quickActions.style.display = 'none';
-        if (toolbar) toolbar.style.display = 'none';
+        document.getElementById('quickActions').style.display = 'none';
+        document.getElementById('toolbar').style.display = 'none';
         switchTab('stats');
     } else {
-        if (quickActions) quickActions.style.display = 'grid';
-        if (toolbar) toolbar.style.display = 'flex';
+        document.getElementById('quickActions').style.display = 'grid';
+        document.getElementById('toolbar').style.display = 'flex';
     }
     
     renderGrid();
@@ -1468,13 +543,9 @@ function login(user) {
     
     currentPin = '';
     updatePin();
-    const fill = document.getElementById('waterFill');
-    if (fill) {
-        fill.style.height = '0%';
-        fill.style.background = '';
-    }
-    const disp = document.getElementById('pinDisplay');
-    if (disp) disp.classList.remove('success');
+    document.getElementById('waterFill').style.height = '0%';
+    document.getElementById('waterFill').style.background = '';
+    document.getElementById('pinDisplay').classList.remove('success');
     
     if (isFirstLogin && user.pin === '1111') {
         showToast('🔑 Перший вхід! Змініть PIN адміністратора');
@@ -1484,25 +555,18 @@ function login(user) {
     }
 }
 
-// Tab Switching
 function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.includes(tab === 'personnel' ? 'Персонал' : tab === 'stats' ? 'Статистика' : 'Управління')) {
-            btn.classList.add('active');
-        }
-    });
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.remove('active');
-    });
+    event.target.closest('.tab-btn').classList.add('active');
     document.getElementById('tab-' + tab).classList.add('active');
     
     if (tab === 'stats') renderStats();
     if (tab === 'admin') renderAdminList();
 }
 
-// Quick Actions
+// Status management with history
 async function applyQuickStatus(status, text) {
     if (!currentUser || currentUser.role === 'reader') {
         showToast('⛔ Немає прав');
@@ -1510,7 +574,7 @@ async function applyQuickStatus(status, text) {
     }
     
     const targets = selectedPersons.size > 0 ? Array.from(selectedPersons) : 
-                   personnel.filter(p => p.name === currentUser.name).map(p => p.id);
+                   personnel.filter(p => p.userId === currentUser.uid).map(p => p.pid);
     
     if (targets.length === 0) {
         showToast('⛔ Немає цілей');
@@ -1519,26 +583,47 @@ async function applyQuickStatus(status, text) {
     
     showSync(true);
     try {
-        const updates = {};
-        targets.forEach(id => {
-            const person = personnel.find(p => p.id === id);
-            if (person) {
-                updates[`personnel/${id}/status`] = status;
-                updates[`personnel/${id}/statusText`] = text;
-                updates[`personnel/${id}/since`] = new Date().toISOString();
-                updates[`personnel/${id}/updatedBy`] = currentUser.name;
-                updates[`personnel/${id}/updatedAt`] = new Date().toISOString();
+        const now = new Date();
+        const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        
+        for (const pid of targets) {
+            const person = personnel.find(p => p.pid === pid);
+            if (!person) continue;
+            
+            // Save current status to history before changing
+            if (person.current) {
+                const historyEntry = {
+                    status: person.current.status,
+                    statusText: person.current.statusText,
+                    from: person.current.since,
+                    to: now.toISOString(),
+                    duration: now - new Date(person.current.since)
+                };
+                
+                const historyPath = `personnel/${pid}/history/${dateKey}`;
+                const existingHistory = person.history && person.history[dateKey] ? person.history[dateKey] : [];
+                existingHistory.push(historyEntry);
+                
+                await dbSet(dbRef(db, historyPath), existingHistory);
             }
-        });
-        
-        await dbUpdate(dbRef(db), updates);
-        showToast('✅ Оновлено ' + targets.length + ' співробітників');
-        
-        if (selectedPersons.size > 0) {
-            clearSelection();
+            
+            // Update current status
+            const updates = {
+                [`personnel/${pid}/current/status`]: status,
+                [`personnel/${pid}/current/statusText`]: text,
+                [`personnel/${pid}/current/since`]: now.toISOString(),
+                [`personnel/${pid}/lastModified/by`]: currentUser.uid,
+                [`personnel/${pid}/lastModified/byName`]: currentUser.name,
+                [`personnel/${pid}/lastModified/at`]: now.toISOString()
+            };
+            
+            await dbUpdate(dbRef(db), updates);
         }
+        
+        showToast('✅ Оновлено ' + targets.length + ' співробітників');
+        if (selectedPersons.size > 0) clearSelection();
     } catch (error) {
-        console.error('Error updating status:', error);
+        console.error('Error:', error);
         showToast('⛔ Помилка збереження');
     } finally {
         showSync(false);
@@ -1547,8 +632,7 @@ async function applyQuickStatus(status, text) {
 
 function updateQuickButtons(activeStatus) {
     ['in', 'vz', 'rz', 'lunch'].forEach(s => {
-        const btn = document.getElementById('btn-' + s);
-        if (btn) btn.classList.toggle('active', s === activeStatus);
+        document.getElementById('btn-' + s)?.classList.toggle('active', s === activeStatus);
     });
 }
 
@@ -1557,94 +641,70 @@ function openCustomStatus() {
         showToast('⛔ Немає прав');
         return;
     }
-    
-    const overlay = document.getElementById('sheetOverlay');
-    const sheet = document.getElementById('customStatusSheet');
-    const input = document.getElementById('quickCustomInput');
-    
-    if (overlay) overlay.classList.add('active');
-    if (sheet) sheet.classList.add('active');
-    if (input) {
-        input.value = '';
-        setTimeout(() => input.focus(), 100);
-    }
+    document.getElementById('sheetOverlay').classList.add('active');
+    document.getElementById('customStatusSheet').classList.add('active');
+    document.getElementById('quickCustomInput').value = '';
+    setTimeout(() => document.getElementById('quickCustomInput').focus(), 100);
 }
 
 async function applyQuickCustom() {
-    const input = document.getElementById('quickCustomInput');
-    const text = input ? input.value.trim() : '';
-    
+    const text = document.getElementById('quickCustomInput').value.trim();
     if (!text) {
         showToast('⛔ Введіть статус');
         return;
     }
-    
     await applyQuickStatus('custom', '⚡ ' + text);
     closeSheet();
 }
 
-// Grid Rendering
+// Grid rendering
 function renderGrid() {
     const grid = document.getElementById('personGrid');
     const hint = document.getElementById('selectionHint');
-    
     if (!grid) return;
-    grid.innerHTML = '';
     
-    if (hint) hint.classList.toggle('visible', selectedPersons.size > 0);
+    grid.innerHTML = '';
+    hint?.classList.toggle('visible', selectedPersons.size > 0);
     
     const isReader = !currentUser || currentUser.role === 'reader';
     
     personnel.forEach(p => {
-        const isSel = selectedPersons.has(p.id);
-        const duration = calcDuration(p.since);
+        const isSel = selectedPersons.has(p.pid);
+        const duration = calcDuration(p.current?.since || p.since);
+        const statusText = p.current?.statusText || p.statusText || '⚪ Не на роботі';
+        const status = p.current?.status || p.status || 'out';
         
         const card = document.createElement('div');
         card.className = 'person-card ' + (isSel ? 'selected' : '');
         
-        card.onclick = function(e) {
-            if (isReader) return;
-            toggleSelect(p.id);
-        };
+        card.onclick = () => { if (!isReader) toggleSelect(p.pid); };
+        card.ondblclick = () => { if (!isReader && selectedPersons.size === 0) openSheet([p.pid]); };
         
-        card.ondblclick = function(e) {
-            if (isReader) return;
-            if (selectedPersons.size === 0) {
-                openSheet([p.id]);
-            }
-        };
-        
-        card.innerHTML = 
-            '<div class="person-header">' +
-                '<div class="person-avatar">' + p.name.charAt(0) + '</div>' +
-                '<div class="person-info">' +
-                    '<div class="person-name">' + p.name + '</div>' +
-                    '<div class="person-time">' + duration + '</div>' +
-                '</div>' +
-            '</div>' +
-            '<span class="status-badge" style="background:' + getColor(p.status) + ';">' + p.statusText + '</span>';
+        card.innerHTML = `
+            <div class="person-header">
+                <div class="person-avatar">${p.name.charAt(0)}</div>
+                <div class="person-info">
+                    <div class="person-name">${p.name}</div>
+                    <div class="person-time">${duration}</div>
+                </div>
+            </div>
+            <span class="status-badge" style="background:${getColor(status)};">${statusText}</span>
+        `;
         
         grid.appendChild(card);
     });
 }
 
 function toggleSelect(id) {
-    if (selectedPersons.has(id)) {
-        selectedPersons.delete(id);
-    } else {
-        selectedPersons.add(id);
-    }
+    selectedPersons.has(id) ? selectedPersons.delete(id) : selectedPersons.add(id);
     updateSelUI();
     renderGrid();
 }
 
 function updateSelUI() {
     const n = selectedPersons.size;
-    const toolbar = document.getElementById('toolbar');
-    const count = document.getElementById('selectedCount');
-    
-    if (toolbar) toolbar.classList.toggle('visible', n > 0);
-    if (count) count.textContent = n;
+    document.getElementById('toolbar').classList.toggle('visible', n > 0);
+    document.getElementById('selectedCount').textContent = n;
 }
 
 function clearSelection() {
@@ -1654,26 +714,22 @@ function clearSelection() {
 }
 
 function updateStats() {
-    const total = document.getElementById('statTotal');
-    const statIn = document.getElementById('statIn');
-    const statVz = document.getElementById('statVz');
-    const statOut = document.getElementById('statOut');
-    
-    if (total) total.textContent = personnel.length;
-    if (statIn) statIn.textContent = personnel.filter(p => p.status === 'in').length;
-    if (statVz) statVz.textContent = personnel.filter(p => p.status === 'vz').length;
-    if (statOut) statOut.textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.status)).length;
+    document.getElementById('statTotal').textContent = personnel.length;
+    document.getElementById('statIn').textContent = personnel.filter(p => (p.current?.status || p.status) === 'in').length;
+    document.getElementById('statVz').textContent = personnel.filter(p => (p.current?.status || p.status) === 'vz').length;
+    document.getElementById('statOut').textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.current?.status || p.status)).length;
 }
 
-// Statistics Tab
+// Statistics
 function renderStats() {
     const container = document.getElementById('statsContainer');
     if (!container) return;
     
     const byStatus = {};
     personnel.forEach(p => {
-        if (!byStatus[p.statusText]) byStatus[p.statusText] = [];
-        byStatus[p.statusText].push(p);
+        const status = p.current?.statusText || p.statusText || '⚪ Не на роботі';
+        if (!byStatus[status]) byStatus[status] = [];
+        byStatus[status].push(p);
     });
     
     let html = '<div style="display: grid; gap: 12px;">';
@@ -1687,7 +743,7 @@ function renderStats() {
                     <div style="font-size: 12px; color: #666;">Всього співробітників</div>
                 </div>
                 <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 12px;">
-                    <div style="font-size: 28px; font-weight: 700; color: var(--success);">${personnel.filter(p => p.status === 'in').length}</div>
+                    <div style="font-size: 28px; font-weight: 700; color: var(--success);">${personnel.filter(p => (p.current?.status || p.status) === 'in').length}</div>
                     <div style="font-size: 12px; color: #666;">Зараз в приміщенні</div>
                 </div>
             </div>
@@ -1695,20 +751,19 @@ function renderStats() {
     `;
     
     Object.entries(byStatus).forEach(([status, people]) => {
-        const avgDur = people.reduce((sum, p) => sum + (new Date() - new Date(p.since)), 0) / people.length;
+        const avgDur = people.reduce((sum, p) => sum + (new Date() - new Date(p.current?.since || p.since)), 0) / people.length;
         const avgH = Math.floor(avgDur / 3600000);
         const avgM = Math.floor((avgDur % 3600000) / 60000);
+        const statusCode = people[0].current?.status || people[0].status || 'out';
         
         html += `
             <div style="background: white; border-radius: 16px; padding: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                     <span style="font-weight: 600; font-size: 16px;">${status}</span>
-                    <span style="background: ${getColor(people[0].status)}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">${people.length}</span>
+                    <span style="background: ${getColor(statusCode)}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">${people.length}</span>
                 </div>
                 <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Середній час: ${avgH}г ${avgM}хв</div>
-                <div style="font-size: 12px; color: #999;">
-                    ${people.map(p => p.name.split(' ')[0]).join(', ')}
-                </div>
+                <div style="font-size: 12px; color: #999;">${people.map(p => p.name.split(' ')[0]).join(', ')}</div>
             </div>
         `;
     });
@@ -1725,24 +780,17 @@ function getColor(s) {
 function calcDuration(since) {
     const d = new Date() - new Date(since);
     const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000);
-    if (h > 0) return h + 'г ' + m + 'хв';
-    return m + 'хв';
+    return h > 0 ? `${h}г ${m}хв` : `${m}хв`;
 }
 
 // Sheets
 function openSheet(ids) {
     sheetTargets = ids;
-    const title = document.getElementById('sheetTitle');
-    const overlay = document.getElementById('sheetOverlay');
-    const sheet = document.getElementById('statusSheet');
-    
-    if (title) title.textContent = ids.length === 1 ? 'Змінити статус' : 'Змінити (' + ids.length + ') співробітників';
-    if (overlay) overlay.classList.add('active');
-    if (sheet) sheet.classList.add('active');
-    
+    document.getElementById('sheetTitle').textContent = ids.length === 1 ? 'Змінити статус' : `Змінити (${ids.length}) співробітників`;
+    document.getElementById('sheetOverlay').classList.add('active');
+    document.getElementById('statusSheet').classList.add('active');
     document.querySelectorAll('#statusSheet .status-opt').forEach(el => el.classList.remove('selected'));
-    const custom = document.getElementById('sheetCustom');
-    if (custom) custom.value = '';
+    document.getElementById('sheetCustom').value = '';
     sheetStatus = null;
 }
 
@@ -1751,27 +799,21 @@ function openBulkSheet() {
 }
 
 function closeSheet() {
-    const overlay = document.getElementById('sheetOverlay');
-    const statusSheet = document.getElementById('statusSheet');
-    const customSheet = document.getElementById('customStatusSheet');
-    
-    if (overlay) overlay.classList.remove('active');
-    if (statusSheet) statusSheet.classList.remove('active');
-    if (customSheet) customSheet.classList.remove('active');
+    document.getElementById('sheetOverlay').classList.remove('active');
+    document.getElementById('statusSheet').classList.remove('active');
+    document.getElementById('customStatusSheet').classList.remove('active');
 }
 
 function selectStatus(st, txt) {
     document.querySelectorAll('#statusSheet .status-opt').forEach(el => el.classList.remove('selected'));
-    if (event && event.currentTarget) event.currentTarget.classList.add('selected');
+    event.currentTarget.classList.add('selected');
     sheetStatus = st;
     sheetText = txt;
-    const custom = document.getElementById('sheetCustom');
-    if (custom) custom.value = '';
+    document.getElementById('sheetCustom').value = '';
 }
 
 async function applyStatus() {
-    const customEl = document.getElementById('sheetCustom');
-    const cst = customEl ? customEl.value.trim() : '';
+    const cst = document.getElementById('sheetCustom').value.trim();
     const st = cst ? 'custom' : sheetStatus;
     const txt = cst ? '⚡ ' + cst : sheetText;
     
@@ -1782,31 +824,52 @@ async function applyStatus() {
     
     showSync(true);
     try {
-        const updates = {};
-        sheetTargets.forEach(id => {
-            const p = personnel.find(x => x.id === id);
-            if (p) {
-                updates[`personnel/${id}/status`] = st;
-                updates[`personnel/${id}/statusText`] = txt;
-                updates[`personnel/${id}/since`] = new Date().toISOString();
-                updates[`personnel/${id}/updatedBy`] = currentUser.name;
-                updates[`personnel/${id}/updatedAt`] = new Date().toISOString();
-            }
-        });
+        const now = new Date();
+        const dateKey = now.toISOString().split('T')[0];
         
-        await dbUpdate(dbRef(db), updates);
-        showToast('✅ Оновлено ' + sheetTargets.length + ' співробітників!');
+        for (const pid of sheetTargets) {
+            const person = personnel.find(p => p.pid === pid);
+            if (!person) continue;
+            
+            // Save to history
+            if (person.current) {
+                const historyEntry = {
+                    status: person.current.status,
+                    statusText: person.current.statusText,
+                    from: person.current.since,
+                    to: now.toISOString(),
+                    duration: now - new Date(person.current.since)
+                };
+                
+                const historyPath = `personnel/${pid}/history/${dateKey}`;
+                const existing = person.history?.[dateKey] || [];
+                existing.push(historyEntry);
+                await dbSet(dbRef(db, historyPath), existing);
+            }
+            
+            // Update current
+            await dbUpdate(dbRef(db), {
+                [`personnel/${pid}/current/status`]: st,
+                [`personnel/${pid}/current/statusText`]: txt,
+                [`personnel/${pid}/current/since`]: now.toISOString(),
+                [`personnel/${pid}/lastModified/by`]: currentUser.uid,
+                [`personnel/${pid}/lastModified/byName`]: currentUser.name,
+                [`personnel/${pid}/lastModified/at`]: now.toISOString()
+            });
+        }
+        
+        showToast(`✅ Оновлено ${sheetTargets.length} співробітників!`);
         closeSheet();
         clearSelection();
     } catch (error) {
-        console.error('Error applying status:', error);
+        console.error('Error:', error);
         showToast('⛔ Помилка збереження');
     } finally {
         showSync(false);
     }
 }
 
-// Unified Admin Form
+// Admin functions
 function setRole(role) {
     selectedRole = role;
     document.querySelectorAll('.role-btn').forEach(btn => {
@@ -1819,47 +882,37 @@ function editUser(pin) {
     if (!user) return;
     
     editingUser = user;
-    
     document.getElementById('userName').value = user.name;
     document.getElementById('userPin').value = user.pin;
-    document.getElementById('editingUserPin').value = user.pin;
-    
+    document.getElementById('editingUserId').value = user.uid;
     setRole(user.role);
     
     document.getElementById('formTitle').textContent = '✏️ Редагування';
     document.getElementById('formMode').textContent = 'редагування';
     document.getElementById('saveBtn').textContent = '💾 Зберегти';
     document.getElementById('cancelBtn').classList.remove('hidden');
-    
-    if (user.pin === currentUser.pin) {
-        document.getElementById('deleteBtn').classList.add('hidden');
-    } else {
-        document.getElementById('deleteBtn').classList.remove('hidden');
-    }
+    document.getElementById('deleteBtn').classList.toggle('hidden', user.uid === currentUser.uid);
     
     showToast('✏️ Режим редагування');
 }
 
 function cancelEdit() {
     editingUser = null;
-    
     document.getElementById('userName').value = '';
     document.getElementById('userPin').value = '';
-    document.getElementById('editingUserPin').value = '';
-    
+    document.getElementById('editingUserId').value = '';
     document.getElementById('formTitle').textContent = '➕ Новий користувач';
     document.getElementById('formMode').textContent = 'створення';
     document.getElementById('saveBtn').textContent = '➕ Створити';
     document.getElementById('cancelBtn').classList.add('hidden');
     document.getElementById('deleteBtn').classList.add('hidden');
-    
     setRole('admin');
 }
 
 async function saveUser() {
     const name = document.getElementById('userName').value.trim();
     const pin = document.getElementById('userPin').value.trim();
-    const oldPin = document.getElementById('editingUserPin').value;
+    const editingUid = document.getElementById('editingUserId').value;
     
     if (!name || pin.length !== 4) {
         showToast('⛔ Заповніть всі поля коректно');
@@ -1869,21 +922,31 @@ async function saveUser() {
     showSync(true);
     try {
         if (editingUser) {
-            if (pin !== oldPin) {
-                const existing = await dbGet(dbChild(dbRef(db, 'users'), pin));
-                if (existing.exists()) {
-                    showToast('⛔ Новий PIN вже зайнятий');
-                    return;
-                }
-                // Delete old record
-                await dbRemove(dbRef(db, `users/${oldPin}`));
+            // Update existing
+            if (pin !== editingUser.pin && usersMap[pin]) {
+                showToast('⛔ Новий PIN вже зайнятий');
+                return;
             }
             
-            const userData = { pin, name, role: selectedRole, updatedAt: new Date().toISOString() };
-            await dbSet(dbRef(db, `users/${pin}`), userData);
+            const updates = {
+                [`users/${editingUid}/pin`]: pin,
+                [`users/${editingUid}/name`]: name,
+                [`users/${editingUid}/role`]: selectedRole,
+                [`users/${editingUid}/updatedAt`]: new Date().toISOString()
+            };
             
-            if (currentUser.pin === oldPin) {
-                currentUser = userData;
+            // Update personnel name too
+            const person = personnel.find(p => p.userId === editingUid);
+            if (person) {
+                updates[`personnel/${person.pid}/name`] = name;
+            }
+            
+            await dbUpdate(dbRef(db), updates);
+            
+            if (currentUser.uid === editingUid) {
+                currentUser.pin = pin;
+                currentUser.name = name;
+                currentUser.role = selectedRole;
                 document.getElementById('headerName').textContent = name.split(' ')[0];
                 document.getElementById('headerRole').textContent = selectedRole;
             }
@@ -1891,26 +954,24 @@ async function saveUser() {
             showToast('✅ Зміни збережено!');
             cancelEdit();
         } else {
-            const existing = await dbGet(dbChild(dbRef(db, 'users'), pin));
-            if (existing.exists()) {
+            // Create new
+            if (usersMap[pin]) {
                 showToast('⛔ PIN вже існує');
                 return;
             }
             
-            const userData = { pin, name, role: selectedRole, createdAt: new Date().toISOString() };
-            await dbSet(dbRef(db, `users/${pin}`), userData);
-            
-            // Also create personnel entry
-            const personId = Date.now();
-            const personData = {
-                id: personId,
+            const uid = generateUid();
+            const userData = {
+                uid: uid,
+                pin: pin,
                 name: name,
-                status: 'out',
-                statusText: '⚪ Не на роботі',
-                since: new Date().toISOString(),
-                createdAt: new Date().toISOString()
+                role: selectedRole,
+                createdAt: new Date().toISOString(),
+                active: true
             };
-            await dbSet(dbRef(db, `personnel/${personId}`), personData);
+            
+            await dbSet(dbRef(db, `users/${uid}`), userData);
+            await createPersonnelRecord(uid, name);
             
             showToast('✅ Користувача створено!');
             document.getElementById('userName').value = '';
@@ -1918,7 +979,7 @@ async function saveUser() {
             setRole('admin');
         }
     } catch (error) {
-        console.error('Error saving user:', error);
+        console.error('Error:', error);
         showToast('⛔ Помилка збереження');
     } finally {
         showSync(false);
@@ -1926,29 +987,23 @@ async function saveUser() {
 }
 
 async function deleteUser() {
-    if (!editingUser) return;
+    if (!editingUser || editingUser.uid === currentUser.uid) return;
     
-    if (editingUser.pin === currentUser.pin) {
-        showToast('⛔ Не можна видалити себе');
-        return;
-    }
-    
-    if (!confirm('Видалити користувача ' + editingUser.name + '?')) return;
+    if (!confirm(`Видалити користувача ${editingUser.name}?`)) return;
     
     showSync(true);
     try {
-        await dbRemove(dbRef(db, `users/${editingUser.pin}`));
-        
-        // Also delete associated personnel
-        const person = personnel.find(p => p.name === editingUser.name);
-        if (person) {
-            await dbRemove(dbRef(db, `personnel/${person.id}`));
-        }
+        // Soft delete - mark as inactive
+        await dbUpdate(dbRef(db, `users/${editingUser.uid}`), {
+            active: false,
+            deletedAt: new Date().toISOString(),
+            deletedBy: currentUser.uid
+        });
         
         showToast('🗑️ Видалено');
         cancelEdit();
     } catch (error) {
-        console.error('Error deleting user:', error);
+        console.error('Error:', error);
         showToast('⛔ Помилка видалення');
     } finally {
         showSync(false);
@@ -1959,28 +1014,26 @@ function renderAdminList() {
     const container = document.getElementById('adminList');
     if (!container) return;
     
-    container.innerHTML = users.map(u => {
-        const roleClass = u.role;
-        return `
-            <div class="user-item" onclick="editUser('${u.pin}')">
-                <div class="user-item-info">
-                    <div class="user-item-name">${u.name} <span class="edit-hint">✏️ редагувати</span></div>
-                    <div class="user-item-pin">PIN: ${u.pin}</div>
-                </div>
-                <span class="user-item-role role-${roleClass}">${u.role}</span>
+    container.innerHTML = users.map(u => `
+        <div class="user-item" onclick="editUser('${u.pin}')">
+            <div class="user-item-info">
+                <div class="user-item-name">${u.name} <span class="edit-hint">✏️ редагувати</span></div>
+                <div class="user-item-pin">PIN: ${u.pin}</div>
             </div>
-        `;
-    }).join('');
+            <span class="user-item-role role-${u.role}">${u.role}</span>
+        </div>
+    `).join('');
 }
 
 async function exportData() {
     showSync(true);
     try {
-        let csv = 'ПІБ,Статус,Тривалість,Останнє оновлення\n';
+        let csv = 'ПІБ,Статус,Тривалість,Останнє оновлення,Ким оновлено\n';
         personnel.forEach(p => {
-            const dur = calcDuration(p.since);
-            const updated = p.updatedBy ? ` (${p.updatedBy})` : '';
-            csv += `"${p.name}","${p.statusText}","${dur}","${new Date(p.since).toLocaleString('uk-UA')}${updated}"\n`;
+            const current = p.current || {};
+            const dur = calcDuration(current.since || p.since);
+            const modified = p.lastModified || {};
+            csv += `"${p.name}","${current.statusText || p.statusText || '⚪'}","${dur}","${new Date(current.since || p.since).toLocaleString('uk-UA')}","${modified.byName || '-'}"\n`;
         });
         
         const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
@@ -2003,41 +1056,28 @@ function logout() {
     document.getElementById('mainApp').classList.remove('active');
     document.getElementById('toolbar').classList.remove('visible');
     
-    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-        btn.classList.toggle('active', i === 0);
-    });
-    document.querySelectorAll('.tab-content').forEach((content, i) => {
-        content.classList.toggle('active', i === 0);
-    });
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
+    document.querySelectorAll('.tab-content').forEach((c, i) => c.classList.toggle('active', i === 0));
     
     cancelEdit();
-    
     currentPin = '';
     updatePin();
-    const fill = document.getElementById('waterFill');
-    if (fill) fill.style.height = '0%';
+    document.getElementById('waterFill').style.height = '0%';
 }
 
 function showToast(m) {
     const t = document.getElementById('toast');
-    if (!t) return;
     t.textContent = m;
     t.classList.add('show');
-    setTimeout(function() {
-        t.classList.remove('show');
-    }, 2500);
+    setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// Touch handling
+// Touch handlers
 let touchStartY = 0;
-document.addEventListener('touchstart', function(e) {
-    touchStartY = e.touches[0].clientY;
-});
-document.addEventListener('touchmove', function(e) {
-    const diff = e.touches[0].clientY - touchStartY;
-    if (diff > 100) {
-        const sheet = document.querySelector('.bottom-sheet.active');
-        if (sheet) closeSheet();
+document.addEventListener('touchstart', e => touchStartY = e.touches[0].clientY);
+document.addEventListener('touchmove', e => {
+    if (e.touches[0].clientY - touchStartY > 100) {
+        document.querySelector('.bottom-sheet.active') && closeSheet();
     }
 });
 </script>
