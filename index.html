@@ -6,6 +6,35 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>🚪 Контроль Проходу</title>
+    <script type="module">
+        // Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, get, update, remove, onValue, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyC1fW9OoEMUTTkO7YI7MxfjL1-u9WvoZ0g",
+            authDomain: "tur-app-53644.firebaseapp.com",
+            databaseURL: "https://tur-app-53644-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tur-app-53644",
+            storageBucket: "tur-app-53644.firebasestorage.app",
+            messagingSenderId: "180955423979",
+            appId: "1:180955423979:web:5c118e8bd178735e560aae",
+            measurementId: "G-7PGQ1SY687"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Expose to global scope for non-module scripts
+        window.firebaseDB = db;
+        window.firebaseRef = ref;
+        window.firebaseGet = get;
+        window.firebaseSet = set;
+        window.firebaseUpdate = update;
+        window.firebaseRemove = remove;
+        window.firebaseOnValue = onValue;
+        window.firebaseChild = child;
+    </script>
     <style>
         * {
             margin: 0;
@@ -908,6 +937,38 @@
             display: none !important;
         }
 
+        /* Loading */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e5e5ea;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -925,11 +986,42 @@
             font-size: 15px;
             font-weight: 500;
         }
+
+        /* Sync indicator */
+        .sync-indicator {
+            position: fixed;
+            top: 12px;
+            right: 12px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success);
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .sync-indicator.active {
+            opacity: 1;
+            animation: pulse 1.5s infinite;
+        }
+
+        .sync-indicator.syncing {
+            background: var(--warning);
+        }
     </style>
 </head>
 <body>
 
 <div class="app-container">
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Sync Indicator -->
+    <div class="sync-indicator" id="syncIndicator"></div>
+
     <!-- Login -->
     <div class="login-screen" id="loginScreen">
         <div class="water-bg"></div>
@@ -1162,7 +1254,8 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// Data
+// Global variables
+let db, dbRef, dbGet, dbSet, dbUpdate, dbRemove, dbOnValue, dbChild;
 let currentUser = null;
 let currentPin = '';
 let selectedRole = 'admin';
@@ -1171,30 +1264,110 @@ let sheetTargets = [];
 let sheetStatus = null;
 let sheetText = '';
 let editingUser = null;
+let users = [];
+let personnel = [];
+let isFirstLogin = false;
 
-// 11 Employees
-let users = [
-    { pin: '1111', name: 'Шевченко О.П.', role: 'admin' },
-    { pin: '2222', name: 'Коваленко М.І.', role: 'editor' },
-    { pin: '3333', name: 'Бондаренко С.М.', role: 'reader' },
-    { pin: '4444', name: 'Ткаченко А.В.', role: 'editor' },
-    { pin: '5555', name: 'Мельник В.О.', role: 'reader' }
-];
+// Initialize Firebase when ready
+window.addEventListener('load', async () => {
+    // Wait for Firebase SDK
+    while (!window.firebaseDB) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+    
+    db = window.firebaseDB;
+    dbRef = window.firebaseRef;
+    dbGet = window.firebaseGet;
+    dbSet = window.firebaseSet;
+    dbUpdate = window.firebaseUpdate;
+    dbRemove = window.firebaseRemove;
+    dbOnValue = window.firebaseOnValue;
+    dbChild = window.firebaseChild;
+    
+    // Check if first login
+    await checkFirstLogin();
+    
+    // Setup real-time listeners
+    setupListeners();
+});
 
-// Simple status tracking - only current status with timestamp
-let personnel = [
-    { id: 1, name: 'Шевченко О.П.', status: 'in', statusText: '🏢 В приміщенні', since: new Date(Date.now()-7200000).toISOString(), history: [] },
-    { id: 2, name: 'Коваленко М.І.', status: 'vz', statusText: '📞 ВЗ', since: new Date(Date.now()-1800000).toISOString(), history: [] },
-    { id: 3, name: 'Бондаренко С.М.', status: 'rz', statusText: '📋 РЗ', since: new Date(Date.now()-3600000).toISOString(), history: [] },
-    { id: 4, name: 'Ткаченко А.В.', status: 'lunch', statusText: '🍽️ Обід', since: new Date(Date.now()-2700000).toISOString(), history: [] },
-    { id: 5, name: 'Мельник В.О.', status: 'meeting', statusText: '👥 Нарада', since: new Date(Date.now()-5400000).toISOString(), history: [] },
-    { id: 6, name: 'Петренко І.Д.', status: 'home', statusText: '🏠 Додому', since: new Date(Date.now()-86400000).toISOString(), history: [] },
-    { id: 7, name: 'Сидоренко Н.П.', status: 'in', statusText: '🏢 В приміщенні', since: new Date(Date.now()-14400000).toISOString(), history: [] },
-    { id: 8, name: 'Кравченко О.В.', status: 'vz', statusText: '📞 ВЗ', since: new Date(Date.now()-4500000).toISOString(), history: [] },
-    { id: 9, name: 'Лисенко О.М.', status: 'in', statusText: '🏢 В приміщенні', since: new Date(Date.now()-10800000).toISOString(), history: [] },
-    { id: 10, name: 'Морозов Д.С.', status: 'rz', statusText: '📋 РЗ', since: new Date(Date.now()-5400000).toISOString(), history: [] },
-    { id: 11, name: 'Васильєва І.П.', status: 'lunch', statusText: '🍽️ Обід', since: new Date(Date.now()-1800000).toISOString(), history: [] }
-];
+// Check if first login (no admin exists)
+async function checkFirstLogin() {
+    showLoading(true);
+    try {
+        const usersRef = dbRef(db, 'users');
+        const snapshot = await dbGet(usersRef);
+        
+        if (!snapshot.exists()) {
+            // First login - create admin with PIN 1111
+            isFirstLogin = true;
+            const adminUser = {
+                pin: '1111',
+                name: 'Адміністратор',
+                role: 'admin',
+                createdAt: new Date().toISOString()
+            };
+            await dbSet(usersRef, { [adminUser.pin]: adminUser });
+            showToast('✅ Створено адміністратора з PIN 1111');
+        }
+    } catch (error) {
+        console.error('Error checking first login:', error);
+        showToast('⛔ Помилка з\'єднання');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// Setup real-time database listeners
+function setupListeners() {
+    // Listen to users
+    const usersRef = dbRef(db, 'users');
+    dbOnValue(usersRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            users = Object.values(data);
+            if (document.getElementById('mainApp').classList.contains('active')) {
+                renderAdminList();
+            }
+        } else {
+            users = [];
+        }
+    });
+    
+    // Listen to personnel
+    const personnelRef = dbRef(db, 'personnel');
+    dbOnValue(personnelRef, (snapshot) => {
+        if (snapshot.exists()) {
+            const data = snapshot.val();
+            personnel = Object.values(data);
+        } else {
+            // Initialize with empty array or default personnel
+            personnel = [];
+        }
+        if (document.getElementById('mainApp').classList.contains('active')) {
+            renderGrid();
+            updateStats();
+        }
+    });
+}
+
+// Loading indicator
+function showLoading(show) {
+    const el = document.getElementById('loadingOverlay');
+    if (el) el.classList.toggle('active', show);
+}
+
+// Sync indicator
+function showSync(syncing) {
+    const el = document.getElementById('syncIndicator');
+    if (el) {
+        el.classList.toggle('active', true);
+        el.classList.toggle('syncing', syncing);
+        if (!syncing) {
+            setTimeout(() => el.classList.remove('active'), 1000);
+        }
+    }
+}
 
 // Clock
 function updateTime() {
@@ -1205,7 +1378,7 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime();
 
-// PIN Functions with colored dots
+// PIN Functions
 function addPin(num) {
     if (currentPin.length < 4) {
         currentPin += num;
@@ -1231,7 +1404,7 @@ function updatePin() {
     });
 }
 
-function checkPin() {
+async function checkPin() {
     if (currentPin.length !== 4) return;
     
     const user = users.find(u => u.pin === currentPin);
@@ -1241,49 +1414,7 @@ function checkPin() {
         if (disp) disp.classList.add('success');
         if (fill) fill.style.height = '100%';
         
-        setTimeout(() => {
-            currentUser = user;
-            
-            const loginScreen = document.getElementById('loginScreen');
-            const mainApp = document.getElementById('mainApp');
-            const headerName = document.getElementById('headerName');
-            const headerRole = document.getElementById('headerRole');
-            const quickActions = document.getElementById('quickActions');
-            const toolbar = document.getElementById('toolbar');
-            
-            if (loginScreen) loginScreen.style.display = 'none';
-            if (mainApp) {
-                mainApp.style.display = 'flex';
-                mainApp.classList.add('active');
-            }
-            
-            if (headerName) headerName.textContent = user.name.split(' ')[0];
-            if (headerRole) headerRole.textContent = user.role;
-            
-            // Role-based visibility
-            if (user.role === 'reader') {
-                if (quickActions) quickActions.style.display = 'none';
-                if (toolbar) toolbar.style.display = 'none';
-                switchTab('stats');
-            } else {
-                if (quickActions) quickActions.style.display = 'grid';
-                if (toolbar) toolbar.style.display = 'flex';
-            }
-            
-            renderGrid();
-            updateStats();
-            renderStats();
-            renderAdminList();
-            
-            currentPin = '';
-            updatePin();
-            if (fill) {
-                fill.style.height = '0%';
-                fill.style.background = '';
-            }
-            if (disp) disp.classList.remove('success');
-            showToast('Вітаємо, ' + user.name.split(' ')[0] + '!');
-        }, 400);
+        setTimeout(() => login(user), 400);
     } else {
         const disp = document.getElementById('pinDisplay');
         const fill = document.getElementById('waterFill');
@@ -1299,6 +1430,57 @@ function checkPin() {
                 fill.style.background = '';
             }
         }, 600);
+    }
+}
+
+function login(user) {
+    currentUser = user;
+    
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    const headerName = document.getElementById('headerName');
+    const headerRole = document.getElementById('headerRole');
+    const quickActions = document.getElementById('quickActions');
+    const toolbar = document.getElementById('toolbar');
+    
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (mainApp) {
+        mainApp.style.display = 'flex';
+        mainApp.classList.add('active');
+    }
+    
+    if (headerName) headerName.textContent = user.name.split(' ')[0];
+    if (headerRole) headerRole.textContent = user.role;
+    
+    if (user.role === 'reader') {
+        if (quickActions) quickActions.style.display = 'none';
+        if (toolbar) toolbar.style.display = 'none';
+        switchTab('stats');
+    } else {
+        if (quickActions) quickActions.style.display = 'grid';
+        if (toolbar) toolbar.style.display = 'flex';
+    }
+    
+    renderGrid();
+    updateStats();
+    renderStats();
+    renderAdminList();
+    
+    currentPin = '';
+    updatePin();
+    const fill = document.getElementById('waterFill');
+    if (fill) {
+        fill.style.height = '0%';
+        fill.style.background = '';
+    }
+    const disp = document.getElementById('pinDisplay');
+    if (disp) disp.classList.remove('success');
+    
+    if (isFirstLogin && user.pin === '1111') {
+        showToast('🔑 Перший вхід! Змініть PIN адміністратора');
+        isFirstLogin = false;
+    } else {
+        showToast('Вітаємо, ' + user.name.split(' ')[0] + '!');
     }
 }
 
@@ -1320,8 +1502,8 @@ function switchTab(tab) {
     if (tab === 'admin') renderAdminList();
 }
 
-// Quick Actions - Apply to ALL selected
-function applyQuickStatus(status, text) {
+// Quick Actions
+async function applyQuickStatus(status, text) {
     if (!currentUser || currentUser.role === 'reader') {
         showToast('⛔ Немає прав');
         return;
@@ -1335,16 +1517,31 @@ function applyQuickStatus(status, text) {
         return;
     }
     
-    targets.forEach(id => {
-        const person = personnel.find(p => p.id === id);
-        if (person) changeStatus(person, status, text);
-    });
-    
-    updateQuickButtons(status);
-    showToast('✅ Оновлено ' + targets.length + ' співробітників');
-    
-    if (selectedPersons.size > 0) {
-        clearSelection();
+    showSync(true);
+    try {
+        const updates = {};
+        targets.forEach(id => {
+            const person = personnel.find(p => p.id === id);
+            if (person) {
+                updates[`personnel/${id}/status`] = status;
+                updates[`personnel/${id}/statusText`] = text;
+                updates[`personnel/${id}/since`] = new Date().toISOString();
+                updates[`personnel/${id}/updatedBy`] = currentUser.name;
+                updates[`personnel/${id}/updatedAt`] = new Date().toISOString();
+            }
+        });
+        
+        await dbUpdate(dbRef(db), updates);
+        showToast('✅ Оновлено ' + targets.length + ' співробітників');
+        
+        if (selectedPersons.size > 0) {
+            clearSelection();
+        }
+    } catch (error) {
+        console.error('Error updating status:', error);
+        showToast('⛔ Помилка збереження');
+    } finally {
+        showSync(false);
     }
 }
 
@@ -1373,7 +1570,7 @@ function openCustomStatus() {
     }
 }
 
-function applyQuickCustom() {
+async function applyQuickCustom() {
     const input = document.getElementById('quickCustomInput');
     const text = input ? input.value.trim() : '';
     
@@ -1382,38 +1579,8 @@ function applyQuickCustom() {
         return;
     }
     
-    applyQuickStatus('custom', '⚡ ' + text);
+    await applyQuickStatus('custom', '⚡ ' + text);
     closeSheet();
-}
-
-// Status Management - Simple: just current status
-function changeStatus(person, status, text) {
-    // Save to history (optional, for stats)
-    if (!person.history) person.history = [];
-    person.history.push({
-        from: person.statusText,
-        to: text,
-        time: new Date().toISOString()
-    });
-    
-    person.status = status;
-    person.statusText = text;
-    person.since = new Date().toISOString();
-    
-    renderGrid();
-    updateStats();
-}
-
-function getColor(s) {
-    const c = {in:'#34c759', vz:'#007aff', rz:'#ff9500', lunch:'#ff9500', meeting:'#af52de', home:'#ff3b30', out:'#999', custom:'#667eea'};
-    return c[s] || '#999';
-}
-
-function calcDuration(since) {
-    const d = new Date() - new Date(since);
-    const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000);
-    if (h > 0) return h + 'г ' + m + 'хв';
-    return m + 'хв';
 }
 
 // Grid Rendering
@@ -1498,22 +1665,19 @@ function updateStats() {
     if (statOut) statOut.textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.status)).length;
 }
 
-// Statistics Tab - Simple overview
+// Statistics Tab
 function renderStats() {
     const container = document.getElementById('statsContainer');
     if (!container) return;
     
-    // Group by status
     const byStatus = {};
     personnel.forEach(p => {
         if (!byStatus[p.statusText]) byStatus[p.statusText] = [];
         byStatus[p.statusText].push(p);
     });
     
-    // Calculate average duration per status
     let html = '<div style="display: grid; gap: 12px;">';
     
-    // Summary card
     html += `
         <div style="background: white; border-radius: 16px; padding: 16px;">
             <div style="font-size: 14px; font-weight: 700; color: #666; margin-bottom: 12px; text-transform: uppercase;">📊 Загальна ситуація</div>
@@ -1530,7 +1694,6 @@ function renderStats() {
         </div>
     `;
     
-    // By status
     Object.entries(byStatus).forEach(([status, people]) => {
         const avgDur = people.reduce((sum, p) => sum + (new Date() - new Date(p.since)), 0) / people.length;
         const avgH = Math.floor(avgDur / 3600000);
@@ -1552,6 +1715,18 @@ function renderStats() {
     
     html += '</div>';
     container.innerHTML = html;
+}
+
+function getColor(s) {
+    const c = {in:'#34c759', vz:'#007aff', rz:'#ff9500', lunch:'#ff9500', meeting:'#af52de', home:'#ff3b30', out:'#999', custom:'#667eea'};
+    return c[s] || '#999';
+}
+
+function calcDuration(since) {
+    const d = new Date() - new Date(since);
+    const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000);
+    if (h > 0) return h + 'г ' + m + 'хв';
+    return m + 'хв';
 }
 
 // Sheets
@@ -1594,7 +1769,7 @@ function selectStatus(st, txt) {
     if (custom) custom.value = '';
 }
 
-function applyStatus() {
+async function applyStatus() {
     const customEl = document.getElementById('sheetCustom');
     const cst = customEl ? customEl.value.trim() : '';
     const st = cst ? 'custom' : sheetStatus;
@@ -1605,14 +1780,30 @@ function applyStatus() {
         return;
     }
     
-    sheetTargets.forEach(id => {
-        const p = personnel.find(x => x.id === id);
-        if (p) changeStatus(p, st, txt);
-    });
-    
-    showToast('✅ Оновлено ' + sheetTargets.length + ' співробітників!');
-    closeSheet();
-    clearSelection();
+    showSync(true);
+    try {
+        const updates = {};
+        sheetTargets.forEach(id => {
+            const p = personnel.find(x => x.id === id);
+            if (p) {
+                updates[`personnel/${id}/status`] = st;
+                updates[`personnel/${id}/statusText`] = txt;
+                updates[`personnel/${id}/since`] = new Date().toISOString();
+                updates[`personnel/${id}/updatedBy`] = currentUser.name;
+                updates[`personnel/${id}/updatedAt`] = new Date().toISOString();
+            }
+        });
+        
+        await dbUpdate(dbRef(db), updates);
+        showToast('✅ Оновлено ' + sheetTargets.length + ' співробітників!');
+        closeSheet();
+        clearSelection();
+    } catch (error) {
+        console.error('Error applying status:', error);
+        showToast('⛔ Помилка збереження');
+    } finally {
+        showSync(false);
+    }
 }
 
 // Unified Admin Form
@@ -1665,7 +1856,7 @@ function cancelEdit() {
     setRole('admin');
 }
 
-function saveUser() {
+async function saveUser() {
     const name = document.getElementById('userName').value.trim();
     const pin = document.getElementById('userPin').value.trim();
     const oldPin = document.getElementById('editingUserPin').value;
@@ -1675,44 +1866,66 @@ function saveUser() {
         return;
     }
     
-    if (editingUser) {
-        if (pin !== oldPin && users.find(u => u.pin === pin)) {
-            showToast('⛔ Новий PIN вже зайнятий');
-            return;
-        }
-        
-        const userIndex = users.findIndex(u => u.pin === oldPin);
-        if (userIndex !== -1) {
-            users[userIndex] = { pin: pin, name: name, role: selectedRole };
+    showSync(true);
+    try {
+        if (editingUser) {
+            if (pin !== oldPin) {
+                const existing = await dbGet(dbChild(dbRef(db, 'users'), pin));
+                if (existing.exists()) {
+                    showToast('⛔ Новий PIN вже зайнятий');
+                    return;
+                }
+                // Delete old record
+                await dbRemove(dbRef(db, `users/${oldPin}`));
+            }
+            
+            const userData = { pin, name, role: selectedRole, updatedAt: new Date().toISOString() };
+            await dbSet(dbRef(db, `users/${pin}`), userData);
             
             if (currentUser.pin === oldPin) {
-                currentUser = users[userIndex];
+                currentUser = userData;
                 document.getElementById('headerName').textContent = name.split(' ')[0];
                 document.getElementById('headerRole').textContent = selectedRole;
             }
             
             showToast('✅ Зміни збережено!');
             cancelEdit();
-            renderAdminList();
+        } else {
+            const existing = await dbGet(dbChild(dbRef(db, 'users'), pin));
+            if (existing.exists()) {
+                showToast('⛔ PIN вже існує');
+                return;
+            }
+            
+            const userData = { pin, name, role: selectedRole, createdAt: new Date().toISOString() };
+            await dbSet(dbRef(db, `users/${pin}`), userData);
+            
+            // Also create personnel entry
+            const personId = Date.now();
+            const personData = {
+                id: personId,
+                name: name,
+                status: 'out',
+                statusText: '⚪ Не на роботі',
+                since: new Date().toISOString(),
+                createdAt: new Date().toISOString()
+            };
+            await dbSet(dbRef(db, `personnel/${personId}`), personData);
+            
+            showToast('✅ Користувача створено!');
+            document.getElementById('userName').value = '';
+            document.getElementById('userPin').value = '';
+            setRole('admin');
         }
-    } else {
-        if (users.find(u => u.pin === pin)) {
-            showToast('⛔ PIN вже існує');
-            return;
-        }
-        
-        users.push({ pin: pin, name: name, role: selectedRole });
-        showToast('✅ Користувача створено!');
-        
-        document.getElementById('userName').value = '';
-        document.getElementById('userPin').value = '';
-        setRole('admin');
-        
-        renderAdminList();
+    } catch (error) {
+        console.error('Error saving user:', error);
+        showToast('⛔ Помилка збереження');
+    } finally {
+        showSync(false);
     }
 }
 
-function deleteUser() {
+async function deleteUser() {
     if (!editingUser) return;
     
     if (editingUser.pin === currentUser.pin) {
@@ -1720,11 +1933,25 @@ function deleteUser() {
         return;
     }
     
-    if (confirm('Видалити користувача ' + editingUser.name + '?')) {
-        users = users.filter(u => u.pin !== editingUser.pin);
+    if (!confirm('Видалити користувача ' + editingUser.name + '?')) return;
+    
+    showSync(true);
+    try {
+        await dbRemove(dbRef(db, `users/${editingUser.pin}`));
+        
+        // Also delete associated personnel
+        const person = personnel.find(p => p.name === editingUser.name);
+        if (person) {
+            await dbRemove(dbRef(db, `personnel/${person.id}`));
+        }
+        
         showToast('🗑️ Видалено');
         cancelEdit();
-        renderAdminList();
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        showToast('⛔ Помилка видалення');
+    } finally {
+        showSync(false);
     }
 }
 
@@ -1746,19 +1973,26 @@ function renderAdminList() {
     }).join('');
 }
 
-function exportData() {
-    let csv = 'ПІБ,Статус,Тривалість поточного статусу\n';
-    personnel.forEach(p => {
-        const dur = calcDuration(p.since);
-        csv += `"${p.name}","${p.statusText}","${dur}"\n`;
-    });
-    const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'проход_' + new Date().toISOString().slice(0,10) + '.csv';
-    a.click();
-    showToast('📊 Експортовано!');
+async function exportData() {
+    showSync(true);
+    try {
+        let csv = 'ПІБ,Статус,Тривалість,Останнє оновлення\n';
+        personnel.forEach(p => {
+            const dur = calcDuration(p.since);
+            const updated = p.updatedBy ? ` (${p.updatedBy})` : '';
+            csv += `"${p.name}","${p.statusText}","${dur}","${new Date(p.since).toLocaleString('uk-UA')}${updated}"\n`;
+        });
+        
+        const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'проход_' + new Date().toISOString().slice(0,10) + '.csv';
+        a.click();
+        showToast('📊 Експортовано!');
+    } finally {
+        showSync(false);
+    }
 }
 
 function logout() {
@@ -1806,10 +2040,6 @@ document.addEventListener('touchmove', function(e) {
         if (sheet) closeSheet();
     }
 });
-
-// Init
-renderGrid();
-updateStats();
 </script>
 
 </body>
