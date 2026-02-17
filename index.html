@@ -2,12 +2,15 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🚪 Контроль Проходу</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, get, update, remove, onValue, child, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, get, set, update, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
+        // ⚠️ Цей ключ можна обмежити доменами в Google Cloud Console
+        // І він НЕ дає прямого доступу до даних без проходження PIN-авторизації
         const firebaseConfig = {
             apiKey: "AIzaSyC1fW9OoEMUTTkO7YI7MxfjL1-u9WvoZ0g",
             authDomain: "tur-app-53644.firebaseapp.com",
@@ -15,29 +18,32 @@
             projectId: "tur-app-53644",
             storageBucket: "tur-app-53644.appspot.com",
             messagingSenderId: "180955423979",
-            appId: "1:180955423979:web:5c118e8bd178735e560aae",
-            measurementId: "G-7PGQ1SY687"
+            appId: "1:180955423979:web:5c118e8bd178735e560aae"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const auth = getAuth(app);
 
+        // Глобальний доступ
         window.firebaseDB = db;
         window.firebaseRef = ref;
         window.firebaseGet = get;
         window.firebaseSet = set;
         window.firebaseUpdate = update;
-        window.firebaseRemove = remove;
         window.firebaseOnValue = onValue;
-        window.firebaseChild = child;
-        window.firebasePush = push;
         window.firebaseServerTimestamp = serverTimestamp;
+        window.firebaseAuth = auth;
+        window.signInAnonymously = signInAnonymously;
+        window.onAuthStateChanged = onAuthStateChanged;
     </script>
     <style>
+        /* ... (твої стилі без змін) ... */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root { --primary: #667eea; --secondary: #764ba2; --success: #34c759; --warning: #ff9500; --danger: #ff3b30; --info: #007aff; --bg: #f2f2f7; }
         html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #333; height: 100%; width: 100%; overflow: hidden; }
         .app-container { width: 100%; height: 100%; max-width: 430px; margin: 0 auto; background: var(--bg); display: flex; flex-direction: column; }
+        /* ... (решта стилів) ... */
         .login-screen { background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; position: relative; }
         .water-bg { position: absolute; bottom: 0; left: 0; right: 0; height: 25%; background: rgba(255,255,255,0.08); border-radius: 50% 50% 0 0; animation: wave 6s ease-in-out infinite; }
         @keyframes wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -50,8 +56,6 @@
         .pin-dot { width: 16px; height: 16px; border-radius: 50%; background: #d1d1d6; transition: all 0.2s ease; }
         .pin-dot.filled { background: var(--primary); transform: scale(1.2); box-shadow: 0 0 10px rgba(102, 126, 234, 0.5); }
         .pin-display.error { border-color: var(--danger); animation: shake 0.4s; }
-        .pin-display.error .pin-dot.filled { background: var(--danger); }
-        .pin-display.success .pin-dot.filled { background: var(--success); }
         @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
         .pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; position: relative; z-index: 1; }
         .pin-btn { aspect-ratio: 1; border: none; border-radius: 50%; background: #e5e5ea; color: #333; font-size: 24px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
@@ -67,7 +71,7 @@
         .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .role-badge { font-size: 10px; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,0.25); text-transform: uppercase; font-weight: 700; }
         .tab-nav { display: flex; background: white; margin: 8px 12px 0; border-radius: 12px; padding: 4px; gap: 4px; flex-shrink: 0; }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 10px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 10px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; }
         .tab-btn.active { background: var(--primary); color: white; }
         .quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px 12px; background: white; margin: 8px 12px; border-radius: 16px; flex-shrink: 0; }
         .action-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
@@ -84,8 +88,6 @@
         .tab-content { position: absolute; inset: 0; overflow-y: auto; padding: 0 12px 80px; opacity: 0; visibility: hidden; transition: opacity 0.2s; }
         .tab-content.active { opacity: 1; visibility: visible; }
         .section-title { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; padding: 12px 4px 8px; display: flex; justify-content: space-between; align-items: center; }
-        .selection-hint { font-size: 12px; color: var(--primary); font-weight: 600; opacity: 0; transition: opacity 0.2s; }
-        .selection-hint.visible { opacity: 1; }
         .person-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .person-card { background: white; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; position: relative; overflow: hidden; }
         .person-card:active { transform: scale(0.98); }
@@ -156,6 +158,10 @@
         .sync-indicator { position: fixed; top: 12px; right: 12px; width: 12px; height: 12px; border-radius: 50%; background: var(--success); z-index: 100; opacity: 0; transition: opacity 0.3s; }
         .sync-indicator.active { opacity: 1; animation: pulse 1.5s infinite; }
         .sync-indicator.syncing { background: var(--warning); }
+        .role-indicator { position: fixed; top: 12px; left: 12px; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; color: white; z-index: 100; text-transform: uppercase; }
+        .role-indicator.admin { background: var(--danger); }
+        .role-indicator.editor { background: var(--info); }
+        .role-indicator.reader { background: #666; }
     </style>
 </head>
 <body>
@@ -163,7 +169,9 @@
 <div class="app-container">
     <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
     <div class="sync-indicator" id="syncIndicator"></div>
+    <div class="role-indicator hidden" id="roleIndicator"></div>
 
+    <!-- Login Screen -->
     <div class="login-screen" id="loginScreen">
         <div class="water-bg"></div>
         <div class="login-logo">🛡️</div>
@@ -188,8 +196,12 @@
                 <button class="pin-btn enter" onclick="checkPin()">→</button>
             </div>
         </div>
+        <div style="color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 20px; text-align: center;">
+            Введіть PIN для авторизації
+        </div>
     </div>
 
+    <!-- Main App -->
     <div class="main-app" id="mainApp">
         <div class="header">
             <div class="header-top">
@@ -205,10 +217,10 @@
         <div class="tab-nav" id="tabNav">
             <button class="tab-btn active" onclick="switchTab('personnel')"><span>👥</span> Персонал</button>
             <button class="tab-btn" onclick="switchTab('stats')"><span>📊</span> Статистика</button>
-            <button class="tab-btn" onclick="switchTab('admin')"><span>⚙️</span> Управління</button>
+            <button class="tab-btn admin-only" onclick="switchTab('admin')"><span>⚙️</span> Управління</button>
         </div>
 
-        <div class="quick-actions" id="quickActions">
+        <div class="quick-actions editor-only" id="quickActions">
             <div class="action-btn" id="btn-in" onclick="applyQuickStatus('in', '🏢 В приміщенні')"><span class="action-icon">🏢</span><span class="action-label">В приміщенні</span></div>
             <div class="action-btn" id="btn-vz" onclick="applyQuickStatus('vz', '📞 ВЗ')"><span class="action-icon">📞</span><span class="action-label">ВЗ</span></div>
             <div class="action-btn" id="btn-rz" onclick="applyQuickStatus('rz', '📋 РЗ')"><span class="action-icon">📋</span><span class="action-label">РЗ</span></div>
@@ -225,7 +237,7 @@
 
         <div class="content-area">
             <div class="tab-content active" id="tab-personnel">
-                <div class="section-title"><span>ПЕРСОНАЛ</span><span class="selection-hint" id="selectionHint">Тапайте для вибору</span></div>
+                <div class="section-title"><span>ПЕРСОНАЛ</span></div>
                 <div class="person-grid" id="personGrid"></div>
             </div>
 
@@ -269,7 +281,7 @@
     </div>
 </div>
 
-<div class="bottom-toolbar" id="toolbar">
+<div class="bottom-toolbar editor-only" id="toolbar">
     <button class="tool-btn danger" onclick="clearSelection()">✕</button>
     <button class="tool-btn primary" onclick="openBulkSheet()">📝</button>
     <span style="display: flex; align-items: center; padding: 0 8px; font-size: 14px; font-weight: 600;" id="selectedCount">0</span>
@@ -304,8 +316,9 @@
 
 <script>
 // Global variables
-let db, dbRef, dbGet, dbSet, dbUpdate, dbRemove, dbOnValue, dbChild, dbPush, dbServerTimestamp;
-let currentUser = null;
+let db, dbRef, dbGet, dbSet, dbUpdate, dbOnValue, dbServerTimestamp;
+let auth, signInAnon, onAuthStateChange;
+let currentUser = null; // { uid, name, role, pin }
 let currentPin = '';
 let selectedRole = 'admin';
 let selectedPersons = new Set();
@@ -315,10 +328,11 @@ let sheetText = '';
 let editingUser = null;
 let users = [];
 let personnel = [];
-let usersMap = {}; // uid -> user data for quick lookup
+let usersMap = {};
 let isFirstLogin = false;
+let firebaseUser = null; // Firebase Auth user
 
-// Initialize Firebase
+// Initialize
 window.addEventListener('load', async () => {
     let attempts = 0;
     while (!window.firebaseDB && attempts < 50) {
@@ -336,25 +350,37 @@ window.addEventListener('load', async () => {
     dbGet = window.firebaseGet;
     dbSet = window.firebaseSet;
     dbUpdate = window.firebaseUpdate;
-    dbRemove = window.firebaseRemove;
     dbOnValue = window.firebaseOnValue;
-    dbChild = window.firebaseChild;
-    dbPush = window.firebasePush;
     dbServerTimestamp = window.firebaseServerTimestamp;
+    auth = window.firebaseAuth;
+    signInAnon = window.signInAnonymously;
+    onAuthStateChange = window.onAuthStateChanged;
     
-    await checkFirstLogin();
-    setupListeners();
+    // Анонімна авторизація одразу (для читання бази)
+    try {
+        await signInAnon(auth);
+    } catch (e) {
+        console.error('Auth error:', e);
+    }
+    
+    onAuthStateChange(auth, (user) => {
+        firebaseUser = user;
+        if (user) {
+            setupListeners();
+            checkFirstLogin();
+        }
+    });
 });
 
-// Check first login - create admin with PIN 1111
+// Check first login
 async function checkFirstLogin() {
     showLoading(true);
     try {
-        const usersRef = dbRef(db, 'users');
-        const snapshot = await dbGet(usersRef);
+        const snapshot = await dbGet(dbRef(db, 'users'));
         
         if (!snapshot.exists()) {
             isFirstLogin = true;
+            // Default admin: PIN 1111
             const adminUid = generateUid();
             const adminUser = {
                 uid: adminUid,
@@ -365,7 +391,6 @@ async function checkFirstLogin() {
                 active: true
             };
             
-            // Create user and personnel records
             await dbSet(dbRef(db, `users/${adminUid}`), adminUser);
             await createPersonnelRecord(adminUid, adminUser.name);
             
@@ -373,34 +398,27 @@ async function checkFirstLogin() {
         }
     } catch (error) {
         console.error('Error:', error);
-        showToast('⛔ Помилка з\'єднання');
     } finally {
         showLoading(false);
     }
 }
 
-// Generate unique ID
 function generateUid() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-// Create personnel record linked to user
 async function createPersonnelRecord(userId, userName) {
     const personnelId = generateUid();
     const personnelData = {
         pid: personnelId,
-        userId: userId,  // Link to users node
-        name: userName,  // Denormalized for display
+        userId: userId,
+        name: userName,
         current: {
             status: 'out',
             statusText: '⚪ Не на роботі',
             since: new Date().toISOString()
         },
-        history: {},  // Date -> array of status changes
-        stats: {
-            totalWorkTime: 0,
-            lastCalculated: null
-        },
+        history: {},
         createdAt: new Date().toISOString()
     };
     
@@ -408,41 +426,28 @@ async function createPersonnelRecord(userId, userName) {
     return personnelId;
 }
 
-// Setup real-time listeners
+// Setup listeners
 function setupListeners() {
-    // Users listener
-    const usersRef = dbRef(db, 'users');
-    dbOnValue(usersRef, (snapshot) => {
+    // Users listener - public read for PIN lookup
+    dbOnValue(dbRef(db, 'users'), (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
             users = Object.values(data).filter(u => u.active !== false);
             usersMap = {};
             users.forEach(u => {
-                usersMap[u.uid] = u;
-                usersMap[u.pin] = u; // Also index by PIN for login
+                usersMap[u.pin] = u; // Index by PIN for login
             });
             
-            if (document.getElementById('mainApp').classList.contains('active')) {
+            if (currentUser) {
                 renderAdminList();
             }
-        } else {
-            users = [];
-            usersMap = {};
         }
     });
 
-    // Personnel listener
-    const personnelRef = dbRef(db, 'personnel');
-    dbOnValue(personnelRef, (snapshot) => {
+    // Personnel listener - requires auth
+    dbOnValue(dbRef(db, 'personnel'), (snapshot) => {
         if (snapshot.exists()) {
-            const data = snapshot.val();
-            personnel = Object.values(data);
-            // Enrich with user data
-            personnel.forEach(p => {
-                if (usersMap[p.userId]) {
-                    p.userData = usersMap[p.userId];
-                }
-            });
+            personnel = Object.values(snapshot.val());
         } else {
             personnel = [];
         }
@@ -453,28 +458,6 @@ function setupListeners() {
         }
     });
 }
-
-// Helper functions
-function showLoading(show) {
-    const el = document.getElementById('loadingOverlay');
-    if (el) el.classList.toggle('active', show);
-}
-
-function showSync(syncing) {
-    const el = document.getElementById('syncIndicator');
-    if (el) {
-        el.classList.toggle('active', true);
-        el.classList.toggle('syncing', syncing);
-        if (!syncing) setTimeout(() => el.classList.remove('active'), 1000);
-    }
-}
-
-function updateTime() {
-    const now = new Date();
-    document.getElementById('currentTime').textContent = now.toLocaleTimeString('uk-UA', {hour:'2-digit',minute:'2-digit'});
-}
-setInterval(updateTime, 1000);
-updateTime();
 
 // PIN functions
 function addPin(num) {
@@ -501,11 +484,18 @@ function updatePin() {
 async function checkPin() {
     if (currentPin.length !== 4) return;
     
-    const user = usersMap[currentPin]; // Lookup by PIN
+    const user = usersMap[currentPin];
+    
     if (user && user.active !== false) {
+        // Успішна авторизація - зберігаємо роль
+        currentUser = user;
+        
         document.getElementById('pinDisplay').classList.add('success');
         document.getElementById('waterFill').style.height = '100%';
-        setTimeout(() => login(user), 400);
+        
+        setTimeout(() => {
+            login(user);
+        }, 400);
     } else {
         document.getElementById('pinDisplay').classList.add('error');
         document.getElementById('waterFill').style.background = 'rgba(255, 59, 48, 0.4)';
@@ -520,27 +510,26 @@ async function checkPin() {
 }
 
 function login(user) {
-    currentUser = user;
+    // Налаштування UI залежно від ролі
+    setupUIForRole(user.role);
     
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('mainApp').classList.add('active');
     document.getElementById('headerName').textContent = user.name.split(' ')[0];
     document.getElementById('headerRole').textContent = user.role;
     
-    if (user.role === 'reader') {
-        document.getElementById('quickActions').style.display = 'none';
-        document.getElementById('toolbar').style.display = 'none';
-        switchTab('stats');
-    } else {
-        document.getElementById('quickActions').style.display = 'grid';
-        document.getElementById('toolbar').style.display = 'flex';
-    }
+    // Показуємо індикатор ролі
+    const roleInd = document.getElementById('roleIndicator');
+    roleInd.textContent = user.role;
+    roleInd.className = 'role-indicator ' + user.role;
+    roleInd.classList.remove('hidden');
     
     renderGrid();
     updateStats();
     renderStats();
     renderAdminList();
     
+    // Reset PIN
     currentPin = '';
     updatePin();
     document.getElementById('waterFill').style.height = '0%';
@@ -551,11 +540,46 @@ function login(user) {
         showToast('🔑 Перший вхід! Змініть PIN адміністратора');
         isFirstLogin = false;
     } else {
-        showToast('Вітаємо, ' + user.name.split(' ')[0] + '!');
+        showToast('Вітаємо, ' + user.name.split(' ')[0] + '! Роль: ' + user.role);
+    }
+}
+
+function setupUIForRole(role) {
+    // Сховати/показати елементи залежно від ролі
+    
+    // Admin: все видно
+    // Editor: quick actions, toolbar, personnel tab (edit), stats
+    // Reader: тільки перегляд (stats, personnel view-only)
+    
+    const adminOnly = document.querySelectorAll('.admin-only');
+    const editorOnly = document.querySelectorAll('.editor-only');
+    const tabNav = document.getElementById('tabNav');
+    
+    if (role === 'reader') {
+        // Читач: тільки перегляд
+        editorOnly.forEach(el => el.style.display = 'none');
+        adminOnly.forEach(el => el.style.display = 'none');
+        
+        // Залишаємо тільки Personnel (view-only) та Stats
+        // Прибираємо можливість редагування в Personnel
+    } else if (role === 'editor') {
+        // Редактор: може змінювати статуси, але не управляти користувачами
+        editorOnly.forEach(el => el.style.display = 'flex');
+        adminOnly.forEach(el => el.style.display = 'none');
+    } else if (role === 'admin') {
+        // Адмін: повний доступ
+        editorOnly.forEach(el => el.style.display = 'flex');
+        adminOnly.forEach(el => el.style.display = 'flex');
     }
 }
 
 function switchTab(tab) {
+    // Перевірка прав для табів
+    if (tab === 'admin' && currentUser?.role !== 'admin') {
+        showToast('⛔ Тільки для адміністраторів');
+        return;
+    }
+    
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
@@ -566,10 +590,19 @@ function switchTab(tab) {
     if (tab === 'admin') renderAdminList();
 }
 
-// Status management with history
+// Status management
 async function applyQuickStatus(status, text) {
-    if (!currentUser || currentUser.role === 'reader') {
-        showToast('⛔ Немає прав');
+    if (!currentUser) return;
+    
+    // Перевірка прав: reader не може змінювати статуси (крім себе - реалізовано в rules)
+    if (currentUser.role === 'reader') {
+        // Reader може змінити тільки свій статус
+        const myPersonnel = personnel.find(p => p.userId === currentUser.uid);
+        if (myPersonnel) {
+            await updateStatus([myPersonnel.pid], status, text);
+        } else {
+            showToast('⛔ Немає прав');
+        }
         return;
     }
     
@@ -581,16 +614,20 @@ async function applyQuickStatus(status, text) {
         return;
     }
     
+    await updateStatus(targets, status, text);
+}
+
+async function updateStatus(targets, status, text) {
     showSync(true);
     try {
         const now = new Date();
-        const dateKey = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const dateKey = now.toISOString().split('T')[0];
         
         for (const pid of targets) {
             const person = personnel.find(p => p.pid === pid);
             if (!person) continue;
             
-            // Save current status to history before changing
+            // Save to history
             if (person.current) {
                 const historyEntry = {
                     status: person.current.status,
@@ -601,39 +638,35 @@ async function applyQuickStatus(status, text) {
                 };
                 
                 const historyPath = `personnel/${pid}/history/${dateKey}`;
-                const existingHistory = person.history && person.history[dateKey] ? person.history[dateKey] : [];
-                existingHistory.push(historyEntry);
+                const existing = person.history?.[dateKey] || [];
+                existing.push(historyEntry);
                 
-                await dbSet(dbRef(db, historyPath), existingHistory);
+                await dbSet(dbRef(db, historyPath), existing);
             }
             
-            // Update current status
-            const updates = {
+            // Update current
+            await dbUpdate(dbRef(db), {
                 [`personnel/${pid}/current/status`]: status,
                 [`personnel/${pid}/current/statusText`]: text,
                 [`personnel/${pid}/current/since`]: now.toISOString(),
                 [`personnel/${pid}/lastModified/by`]: currentUser.uid,
                 [`personnel/${pid}/lastModified/byName`]: currentUser.name,
                 [`personnel/${pid}/lastModified/at`]: now.toISOString()
-            };
-            
-            await dbUpdate(dbRef(db), updates);
+            });
         }
         
         showToast('✅ Оновлено ' + targets.length + ' співробітників');
         if (selectedPersons.size > 0) clearSelection();
     } catch (error) {
         console.error('Error:', error);
-        showToast('⛔ Помилка збереження');
+        if (error.message.includes('PERMISSION_DENIED')) {
+            showToast('⛔ Немає прав на редагування');
+        } else {
+            showToast('⛔ Помилка збереження');
+        }
     } finally {
         showSync(false);
     }
-}
-
-function updateQuickButtons(activeStatus) {
-    ['in', 'vz', 'rz', 'lunch'].forEach(s => {
-        document.getElementById('btn-' + s)?.classList.toggle('active', s === activeStatus);
-    });
 }
 
 function openCustomStatus() {
@@ -660,25 +693,36 @@ async function applyQuickCustom() {
 // Grid rendering
 function renderGrid() {
     const grid = document.getElementById('personGrid');
-    const hint = document.getElementById('selectionHint');
     if (!grid) return;
     
     grid.innerHTML = '';
-    hint?.classList.toggle('visible', selectedPersons.size > 0);
     
-    const isReader = !currentUser || currentUser.role === 'reader';
+    const isReader = currentUser?.role === 'reader';
+    const isEditor = currentUser?.role === 'editor';
+    const isAdmin = currentUser?.role === 'admin';
+    const canEdit = isEditor || isAdmin;
     
     personnel.forEach(p => {
         const isSel = selectedPersons.has(p.pid);
-        const duration = calcDuration(p.current?.since || p.since);
-        const statusText = p.current?.statusText || p.statusText || '⚪ Не на роботі';
-        const status = p.current?.status || p.status || 'out';
+        const duration = calcDuration(p.current?.since);
+        const statusText = p.current?.statusText || '⚪ Не на роботі';
+        const status = p.current?.status || 'out';
         
         const card = document.createElement('div');
         card.className = 'person-card ' + (isSel ? 'selected' : '');
         
-        card.onclick = () => { if (!isReader) toggleSelect(p.pid); };
-        card.ondblclick = () => { if (!isReader && selectedPersons.size === 0) openSheet([p.pid]); };
+        // Reader: тільки перегляд, без вибору
+        // Editor/Admin: вибір та редагування
+        if (canEdit) {
+            card.onclick = () => toggleSelect(p.pid);
+            card.ondblclick = () => {
+                if (selectedPersons.size === 0) openSheet([p.pid]);
+            };
+        } else {
+            // Reader: click показує деталі (без зміни статусу)
+            card.onclick = () => showPersonDetails(p);
+            card.style.cursor = 'default';
+        }
         
         card.innerHTML = `
             <div class="person-header">
@@ -689,13 +733,30 @@ function renderGrid() {
                 </div>
             </div>
             <span class="status-badge" style="background:${getColor(status)};">${statusText}</span>
+            ${isReader && p.userId === currentUser?.uid ? '<div style="font-size: 10px; color: var(--info); margin-top: 4px;">👤 Це ви (можете змінити статус)</div>' : ''}
         `;
         
         grid.appendChild(card);
     });
 }
 
+function showPersonDetails(person) {
+    // Модальне вікно з детальною інформацією для reader
+    const history = person.history ? Object.entries(person.history).flatMap(([date, entries]) => 
+        entries.map(e => ({...e, date}))
+    ) : [];
+    
+    const lastChanges = history.slice(-3).reverse();
+    const details = lastChanges.map(h => 
+        `${new Date(h.from).toLocaleTimeString('uk-UA')}: ${h.statusText} (${Math.floor(h.duration/60000)}хв)`
+    ).join('\n');
+    
+    alert(`👤 ${person.name}\n📊 Статус: ${person.current?.statusText}\n⏱️ Тривалість: ${calcDuration(person.current?.since)}\n\n📋 Останні зміни:\n${details || 'Немає даних'}`);
+}
+
 function toggleSelect(id) {
+    if (currentUser?.role === 'reader') return; // Додатковий захист
+    
     selectedPersons.has(id) ? selectedPersons.delete(id) : selectedPersons.add(id);
     updateSelUI();
     renderGrid();
@@ -703,7 +764,7 @@ function toggleSelect(id) {
 
 function updateSelUI() {
     const n = selectedPersons.size;
-    document.getElementById('toolbar').classList.toggle('visible', n > 0);
+    document.getElementById('toolbar').classList.toggle('visible', n > 0 && currentUser?.role !== 'reader');
     document.getElementById('selectedCount').textContent = n;
 }
 
@@ -715,9 +776,9 @@ function clearSelection() {
 
 function updateStats() {
     document.getElementById('statTotal').textContent = personnel.length;
-    document.getElementById('statIn').textContent = personnel.filter(p => (p.current?.status || p.status) === 'in').length;
-    document.getElementById('statVz').textContent = personnel.filter(p => (p.current?.status || p.status) === 'vz').length;
-    document.getElementById('statOut').textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.current?.status || p.status)).length;
+    document.getElementById('statIn').textContent = personnel.filter(p => p.current?.status === 'in').length;
+    document.getElementById('statVz').textContent = personnel.filter(p => p.current?.status === 'vz').length;
+    document.getElementById('statOut').textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.current?.status)).length;
 }
 
 // Statistics
@@ -727,13 +788,14 @@ function renderStats() {
     
     const byStatus = {};
     personnel.forEach(p => {
-        const status = p.current?.statusText || p.statusText || '⚪ Не на роботі';
+        const status = p.current?.statusText || '⚪ Не на роботі';
         if (!byStatus[status]) byStatus[status] = [];
         byStatus[status].push(p);
     });
     
     let html = '<div style="display: grid; gap: 12px;">';
     
+    // Загальна статистика
     html += `
         <div style="background: white; border-radius: 16px; padding: 16px;">
             <div style="font-size: 14px; font-weight: 700; color: #666; margin-bottom: 12px; text-transform: uppercase;">📊 Загальна ситуація</div>
@@ -743,18 +805,16 @@ function renderStats() {
                     <div style="font-size: 12px; color: #666;">Всього співробітників</div>
                 </div>
                 <div style="text-align: center; padding: 12px; background: #f8f9fa; border-radius: 12px;">
-                    <div style="font-size: 28px; font-weight: 700; color: var(--success);">${personnel.filter(p => (p.current?.status || p.status) === 'in').length}</div>
+                    <div style="font-size: 28px; font-weight: 700; color: var(--success);">${personnel.filter(p => p.current?.status === 'in').length}</div>
                     <div style="font-size: 12px; color: #666;">Зараз в приміщенні</div>
                 </div>
             </div>
         </div>
     `;
     
+    // Деталізація по статусах
     Object.entries(byStatus).forEach(([status, people]) => {
-        const avgDur = people.reduce((sum, p) => sum + (new Date() - new Date(p.current?.since || p.since)), 0) / people.length;
-        const avgH = Math.floor(avgDur / 3600000);
-        const avgM = Math.floor((avgDur % 3600000) / 60000);
-        const statusCode = people[0].current?.status || people[0].status || 'out';
+        const statusCode = people[0].current?.status || 'out';
         
         html += `
             <div style="background: white; border-radius: 16px; padding: 16px;">
@@ -762,7 +822,6 @@ function renderStats() {
                     <span style="font-weight: 600; font-size: 16px;">${status}</span>
                     <span style="background: ${getColor(statusCode)}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">${people.length}</span>
                 </div>
-                <div style="font-size: 13px; color: #666; margin-bottom: 8px;">Середній час: ${avgH}г ${avgM}хв</div>
                 <div style="font-size: 12px; color: #999;">${people.map(p => p.name.split(' ')[0]).join(', ')}</div>
             </div>
         `;
@@ -778,6 +837,7 @@ function getColor(s) {
 }
 
 function calcDuration(since) {
+    if (!since) return '0хв';
     const d = new Date() - new Date(since);
     const h = Math.floor(d/3600000), m = Math.floor((d%3600000)/60000);
     return h > 0 ? `${h}г ${m}хв` : `${m}хв`;
@@ -785,6 +845,8 @@ function calcDuration(since) {
 
 // Sheets
 function openSheet(ids) {
+    if (currentUser?.role === 'reader') return;
+    
     sheetTargets = ids;
     document.getElementById('sheetTitle').textContent = ids.length === 1 ? 'Змінити статус' : `Змінити (${ids.length}) співробітників`;
     document.getElementById('sheetOverlay').classList.add('active');
@@ -795,6 +857,7 @@ function openSheet(ids) {
 }
 
 function openBulkSheet() {
+    if (currentUser?.role === 'reader') return;
     openSheet(Array.from(selectedPersons));
 }
 
@@ -813,6 +876,11 @@ function selectStatus(st, txt) {
 }
 
 async function applyStatus() {
+    if (currentUser?.role === 'reader') {
+        showToast('⛔ Немає прав');
+        return;
+    }
+    
     const cst = document.getElementById('sheetCustom').value.trim();
     const st = cst ? 'custom' : sheetStatus;
     const txt = cst ? '⚡ ' + cst : sheetText;
@@ -822,54 +890,12 @@ async function applyStatus() {
         return;
     }
     
-    showSync(true);
-    try {
-        const now = new Date();
-        const dateKey = now.toISOString().split('T')[0];
-        
-        for (const pid of sheetTargets) {
-            const person = personnel.find(p => p.pid === pid);
-            if (!person) continue;
-            
-            // Save to history
-            if (person.current) {
-                const historyEntry = {
-                    status: person.current.status,
-                    statusText: person.current.statusText,
-                    from: person.current.since,
-                    to: now.toISOString(),
-                    duration: now - new Date(person.current.since)
-                };
-                
-                const historyPath = `personnel/${pid}/history/${dateKey}`;
-                const existing = person.history?.[dateKey] || [];
-                existing.push(historyEntry);
-                await dbSet(dbRef(db, historyPath), existing);
-            }
-            
-            // Update current
-            await dbUpdate(dbRef(db), {
-                [`personnel/${pid}/current/status`]: st,
-                [`personnel/${pid}/current/statusText`]: txt,
-                [`personnel/${pid}/current/since`]: now.toISOString(),
-                [`personnel/${pid}/lastModified/by`]: currentUser.uid,
-                [`personnel/${pid}/lastModified/byName`]: currentUser.name,
-                [`personnel/${pid}/lastModified/at`]: now.toISOString()
-            });
-        }
-        
-        showToast(`✅ Оновлено ${sheetTargets.length} співробітників!`);
-        closeSheet();
-        clearSelection();
-    } catch (error) {
-        console.error('Error:', error);
-        showToast('⛔ Помилка збереження');
-    } finally {
-        showSync(false);
-    }
+    await updateStatus(sheetTargets, st, txt);
+    closeSheet();
+    clearSelection();
 }
 
-// Admin functions
+// Admin functions (тільки для admin)
 function setRole(role) {
     selectedRole = role;
     document.querySelectorAll('.role-btn').forEach(btn => {
@@ -878,6 +904,11 @@ function setRole(role) {
 }
 
 function editUser(pin) {
+    if (currentUser?.role !== 'admin') {
+        showToast('⛔ Тільки для адміністраторів');
+        return;
+    }
+    
     const user = users.find(u => u.pin === pin);
     if (!user) return;
     
@@ -910,6 +941,11 @@ function cancelEdit() {
 }
 
 async function saveUser() {
+    if (currentUser?.role !== 'admin') {
+        showToast('⛔ Тільки для адміністраторів');
+        return;
+    }
+    
     const name = document.getElementById('userName').value.trim();
     const pin = document.getElementById('userPin').value.trim();
     const editingUid = document.getElementById('editingUserId').value;
@@ -922,7 +958,7 @@ async function saveUser() {
     showSync(true);
     try {
         if (editingUser) {
-            // Update existing
+            // Update
             if (pin !== editingUser.pin && usersMap[pin]) {
                 showToast('⛔ Новий PIN вже зайнятий');
                 return;
@@ -935,7 +971,6 @@ async function saveUser() {
                 [`users/${editingUid}/updatedAt`]: new Date().toISOString()
             };
             
-            // Update personnel name too
             const person = personnel.find(p => p.userId === editingUid);
             if (person) {
                 updates[`personnel/${person.pid}/name`] = name;
@@ -949,12 +984,13 @@ async function saveUser() {
                 currentUser.role = selectedRole;
                 document.getElementById('headerName').textContent = name.split(' ')[0];
                 document.getElementById('headerRole').textContent = selectedRole;
+                setupUIForRole(selectedRole);
             }
             
             showToast('✅ Зміни збережено!');
             cancelEdit();
         } else {
-            // Create new
+            // Create
             if (usersMap[pin]) {
                 showToast('⛔ PIN вже існує');
                 return;
@@ -987,13 +1023,13 @@ async function saveUser() {
 }
 
 async function deleteUser() {
+    if (currentUser?.role !== 'admin') return;
     if (!editingUser || editingUser.uid === currentUser.uid) return;
     
     if (!confirm(`Видалити користувача ${editingUser.name}?`)) return;
     
     showSync(true);
     try {
-        // Soft delete - mark as inactive
         await dbUpdate(dbRef(db, `users/${editingUser.uid}`), {
             active: false,
             deletedAt: new Date().toISOString(),
@@ -1012,7 +1048,7 @@ async function deleteUser() {
 
 function renderAdminList() {
     const container = document.getElementById('adminList');
-    if (!container) return;
+    if (!container || currentUser?.role !== 'admin') return;
     
     container.innerHTML = users.map(u => `
         <div class="user-item" onclick="editUser('${u.pin}')">
@@ -1031,9 +1067,9 @@ async function exportData() {
         let csv = 'ПІБ,Статус,Тривалість,Останнє оновлення,Ким оновлено\n';
         personnel.forEach(p => {
             const current = p.current || {};
-            const dur = calcDuration(current.since || p.since);
+            const dur = calcDuration(current.since);
             const modified = p.lastModified || {};
-            csv += `"${p.name}","${current.statusText || p.statusText || '⚪'}","${dur}","${new Date(current.since || p.since).toLocaleString('uk-UA')}","${modified.byName || '-'}"\n`;
+            csv += `"${p.name}","${current.statusText || '⚪'}","${dur}","${new Date(current.since).toLocaleString('uk-UA')}","${modified.byName || '-'}"\n`;
         });
         
         const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
@@ -1055,7 +1091,9 @@ function logout() {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('mainApp').classList.remove('active');
     document.getElementById('toolbar').classList.remove('visible');
+    document.getElementById('roleIndicator').classList.add('hidden');
     
+    // Reset tabs
     document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
     document.querySelectorAll('.tab-content').forEach((c, i) => c.classList.toggle('active', i === 0));
     
@@ -1063,6 +1101,22 @@ function logout() {
     currentPin = '';
     updatePin();
     document.getElementById('waterFill').style.height = '0%';
+    
+    // Показуємо всі елементи знову для наступного входу
+    document.querySelectorAll('.admin-only, .editor-only').forEach(el => {
+        el.style.display = '';
+    });
+}
+
+function showLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('active', show);
+}
+
+function showSync(syncing) {
+    const el = document.getElementById('syncIndicator');
+    el.classList.toggle('active', true);
+    el.classList.toggle('syncing', syncing);
+    if (!syncing) setTimeout(() => el.classList.remove('active'), 1000);
 }
 
 function showToast(m) {
@@ -1072,14 +1126,12 @@ function showToast(m) {
     setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// Touch handlers
-let touchStartY = 0;
-document.addEventListener('touchstart', e => touchStartY = e.touches[0].clientY);
-document.addEventListener('touchmove', e => {
-    if (e.touches[0].clientY - touchStartY > 100) {
-        document.querySelector('.bottom-sheet.active') && closeSheet();
-    }
-});
+function updateTime() {
+    const now = new Date();
+    document.getElementById('currentTime').textContent = now.toLocaleTimeString('uk-UA', {hour:'2-digit',minute:'2-digit'});
+}
+setInterval(updateTime, 1000);
+updateTime();
 </script>
 
 </body>
