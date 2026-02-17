@@ -62,40 +62,83 @@
         .main-app { flex: 1; display: none; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
         .main-app.active { display: flex; }
         
-        /* Header з кнопкою виходу */
-        .header { background: linear-gradient(180deg, var(--primary), var(--secondary)); color: white; padding: 50px 16px 12px; flex-shrink: 0; position: relative; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .header h1 { font-size: 20px; font-weight: 700; }
-        .datetime { font-size: 14px; opacity: 0.9; font-weight: 500; }
-        .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-        .role-badge { font-size: 10px; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,0.25); text-transform: uppercase; font-weight: 700; }
+        /* ===== ВИПРАВЛЕНИЙ ХЕДЕР ===== */
+        .header { 
+            background: linear-gradient(180deg, var(--primary), var(--secondary)); 
+            color: white; 
+            padding: 50px 16px 12px; 
+            flex-shrink: 0; 
+        }
+        .header-top { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 12px; 
+        }
+        .header h1 { 
+            font-size: 20px; 
+            font-weight: 700; 
+        }
+        .datetime { 
+            font-size: 14px; 
+            opacity: 0.9; 
+            font-weight: 500; 
+            background: rgba(255,255,255,0.15);
+            padding: 4px 10px;
+            border-radius: 12px;
+        }
         
-        /* Кнопка виходу в хедері */
+        /* Нижній ряд хедера з інфо про користувача та кнопкою виходу */
+        .header-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        .user-name {
+            font-weight: 600;
+        }
+        .role-badge { 
+            font-size: 10px; 
+            padding: 3px 8px; 
+            border-radius: 8px; 
+            background: rgba(255,255,255,0.25); 
+            text-transform: uppercase; 
+            font-weight: 700; 
+        }
+        
+        /* Кнопка виходу — тепер внизу хедера */
         .logout-btn { 
-            position: absolute; 
-            top: 50px; 
-            right: 16px; 
             background: rgba(255,255,255,0.2); 
             border: none; 
             color: white; 
-            padding: 6px 12px; 
+            padding: 6px 14px; 
             border-radius: 20px; 
             font-size: 12px; 
             font-weight: 600; 
             cursor: pointer; 
             display: flex; 
             align-items: center; 
-            gap: 4px;
+            gap: 6px;
             transition: all 0.2s;
         }
-        .logout-btn:hover { background: rgba(255,255,255,0.3); }
-        .logout-btn:active { transform: scale(0.95); }
+        .logout-btn:hover { 
+            background: rgba(255,255,255,0.3); 
+        }
+        .logout-btn:active { 
+            transform: scale(0.95); 
+        }
+        /* ============================= */
         
         .tab-nav { display: flex; background: white; margin: 8px 12px 0; border-radius: 12px; padding: 4px; gap: 4px; flex-shrink: 0; }
         .tab-btn { flex: 1; padding: 10px 4px; border: none; background: transparent; border-radius: 10px; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
         .tab-btn.active { background: var(--primary); color: white; }
         
-        /* Адаптивні кнопки статусів */
         .quick-actions { 
             display: grid; 
             grid-template-columns: repeat(5, 1fr); 
@@ -124,7 +167,6 @@
         .action-icon { font-size: 20px; line-height: 1; }
         .action-label { font-size: 9px; font-weight: 600; color: #333; text-align: center; line-height: 1.2; }
         
-        /* Для ноутбуків — компактніший варіант */
         @media (min-height: 800px) {
             .action-btn { padding: 12px 4px; min-height: 70px; }
             .action-icon { font-size: 24px; }
@@ -142,7 +184,6 @@
         .tab-content.active { opacity: 1; visibility: visible; }
         .section-title { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; padding: 12px 4px 8px; display: flex; justify-content: space-between; align-items: center; }
         
-        /* Графік присутності */
         .timeline-container { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
         .timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .timeline-title { font-size: 16px; font-weight: 700; color: #333; }
@@ -302,21 +343,24 @@
 
     <!-- Main App -->
     <div class="main-app" id="mainApp">
+        <!-- ===== ВИПРАВЛЕНИЙ ХЕДЕР ===== -->
         <div class="header">
             <div class="header-top">
                 <h1>🏢 Прохідна</h1>
                 <div class="datetime" id="currentTime">--:--</div>
             </div>
-            <div class="user-badge">
-                <span id="headerName">--</span>
-                <span class="role-badge" id="headerRole">--</span>
+            <div class="header-bottom">
+                <div class="user-info">
+                    <span class="user-name" id="headerName">--</span>
+                    <span class="role-badge" id="headerRole">--</span>
+                </div>
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Вийти</span>
+                </button>
             </div>
-            <!-- Кнопка виходу -->
-            <button class="logout-btn" onclick="logout()">
-                <span>🚪</span>
-                <span>Вийти</span>
-            </button>
         </div>
+        <!-- ============================= -->
 
         <div class="tab-nav" id="tabNav">
             <button class="tab-btn active" onclick="switchTab('personnel')"><span>👥</span> Персонал</button>
@@ -362,7 +406,7 @@
                 <div class="person-grid" id="personGrid"></div>
             </div>
 
-            <!-- Timeline Tab (NEW) -->
+            <!-- Timeline Tab -->
             <div class="tab-content" id="tab-timeline">
                 <div class="section-title"><span>ГРАФІК ПРИСУТНОСТІ</span></div>
                 <div id="timelineContainer"></div>
@@ -573,7 +617,7 @@ function setupListeners() {
         if (document.getElementById('mainApp').classList.contains('active')) {
             renderGrid();
             updateStats();
-            renderTimeline(); // Оновлюємо графік при зміні даних
+            renderTimeline();
         }
     });
 }
@@ -640,7 +684,7 @@ function login(user) {
     updateStats();
     renderStats();
     renderAdminList();
-    renderTimeline(); // Рендеримо графік при вході
+    renderTimeline();
     
     currentPin = '';
     updatePin();
@@ -870,17 +914,17 @@ function updateStats() {
     document.getElementById('statOut').textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.current?.status)).length;
 }
 
-// NEW: Timeline / Графік присутності
+// Timeline
 function renderTimeline() {
     const container = document.getElementById('timelineContainer');
     if (!container) return;
     
     const today = new Date().toISOString().split('T')[0];
     const dayStart = new Date();
-    dayStart.setHours(8, 0, 0, 0); // Початок робочого дня 8:00
+    dayStart.setHours(8, 0, 0, 0);
     const dayEnd = new Date();
-    dayEnd.setHours(18, 0, 0, 0); // Кінець 18:00
-    const totalMinutes = (dayEnd - dayStart) / 60000; // 600 хвилин
+    dayEnd.setHours(18, 0, 0, 0);
+    const totalMinutes = (dayEnd - dayStart) / 60000;
     
     let html = `
         <div class="timeline-container">
@@ -888,19 +932,14 @@ function renderTimeline() {
                 <span class="timeline-title">📅 Сьогодні, ${new Date().toLocaleDateString('uk-UA')}</span>
                 <span class="timeline-date">🕐 08:00 - 18:00</span>
             </div>
+            <div class="timeline-legend">
+                <div class="legend-item"><div class="legend-dot" style="background: var(--success);"></div>В приміщенні</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--info);"></div>ВЗ</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--warning);"></div>РЗ/Обід</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #95a5a6;"></div>Відсутній</div>
+            </div>
     `;
     
-    // Легенда
-    html += `
-        <div class="timeline-legend">
-            <div class="legend-item"><div class="legend-dot" style="background: var(--success);"></div>В приміщенні</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--info);"></div>ВЗ</div>
-            <div class="legend-item"><div class="legend-dot" style="background: var(--warning);"></div>РЗ/Обід</div>
-            <div class="legend-item"><div class="legend-dot" style="background: #95a5a6;"></div>Відсутній</div>
-        </div>
-    `;
-    
-    // Дані для кожного співробітника
     personnel.forEach(p => {
         const history = p.history?.[today] || [];
         const segments = buildTimelineSegments(history, dayStart, dayEnd, totalMinutes, p.current);
@@ -930,10 +969,8 @@ function buildTimelineSegments(history, dayStart, dayEnd, totalMinutes, current)
     let segments = [];
     let lastTime = dayStart;
     
-    // Сортуємо історію
     const sortedHistory = [...history].sort((a, b) => new Date(a.from) - new Date(b.from));
     
-    // Додаємо поточний статус як "відкритий" сегмент
     if (current && current.since) {
         sortedHistory.push({
             from: current.since,
@@ -948,7 +985,6 @@ function buildTimelineSegments(history, dayStart, dayEnd, totalMinutes, current)
         const entryStart = new Date(entry.from);
         const entryEnd = entry.to ? new Date(entry.to) : new Date();
         
-        // Пропускаємо якщо поза межами робочого дня
         if (entryEnd < dayStart || entryStart > dayEnd) return;
         
         const clampedStart = entryStart < dayStart ? dayStart : entryStart;
