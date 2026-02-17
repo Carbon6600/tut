@@ -9,8 +9,6 @@
         import { getDatabase, ref, get, set, update, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // ⚠️ Цей ключ можна обмежити доменами в Google Cloud Console
-        // І він НЕ дає прямого доступу до даних без проходження PIN-авторизації
         const firebaseConfig = {
             apiKey: "AIzaSyC1fW9OoEMUTTkO7YI7MxfjL1-u9WvoZ0g",
             authDomain: "tur-app-53644.firebaseapp.com",
@@ -25,7 +23,6 @@
         const db = getDatabase(app);
         const auth = getAuth(app);
 
-        // Глобальний доступ
         window.firebaseDB = db;
         window.firebaseRef = ref;
         window.firebaseGet = get;
@@ -38,12 +35,11 @@
         window.onAuthStateChanged = onAuthStateChanged;
     </script>
     <style>
-        /* ... (твої стилі без змін) ... */
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         :root { --primary: #667eea; --secondary: #764ba2; --success: #34c759; --warning: #ff9500; --danger: #ff3b30; --info: #007aff; --bg: #f2f2f7; }
         html, body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #333; height: 100%; width: 100%; overflow: hidden; }
         .app-container { width: 100%; height: 100%; max-width: 430px; margin: 0 auto; background: var(--bg); display: flex; flex-direction: column; }
-        /* ... (решта стилів) ... */
+        
         .login-screen { background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%); height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; position: relative; }
         .water-bg { position: absolute; bottom: 0; left: 0; right: 0; height: 25%; background: rgba(255,255,255,0.08); border-radius: 50% 50% 0 0; animation: wave 6s ease-in-out infinite; }
         @keyframes wave { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -62,32 +58,131 @@
         .pin-btn:active { transform: scale(0.92); background: #d1d1d6; }
         .pin-btn.clear { background: var(--danger); color: white; font-size: 20px; }
         .pin-btn.enter { background: var(--success); color: white; font-size: 24px; }
+        
         .main-app { flex: 1; display: none; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
         .main-app.active { display: flex; }
-        .header { background: linear-gradient(180deg, var(--primary), var(--secondary)); color: white; padding: 50px 16px 12px; flex-shrink: 0; }
+        
+        /* Header з кнопкою виходу */
+        .header { background: linear-gradient(180deg, var(--primary), var(--secondary)); color: white; padding: 50px 16px 12px; flex-shrink: 0; position: relative; }
         .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .header h1 { font-size: 20px; font-weight: 700; }
         .datetime { font-size: 14px; opacity: 0.9; font-weight: 500; }
         .user-badge { display: flex; align-items: center; gap: 8px; font-size: 13px; }
         .role-badge { font-size: 10px; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,0.25); text-transform: uppercase; font-weight: 700; }
+        
+        /* Кнопка виходу в хедері */
+        .logout-btn { 
+            position: absolute; 
+            top: 50px; 
+            right: 16px; 
+            background: rgba(255,255,255,0.2); 
+            border: none; 
+            color: white; 
+            padding: 6px 12px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(255,255,255,0.3); }
+        .logout-btn:active { transform: scale(0.95); }
+        
         .tab-nav { display: flex; background: white; margin: 8px 12px 0; border-radius: 12px; padding: 4px; gap: 4px; flex-shrink: 0; }
-        .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 10px; font-size: 13px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; }
+        .tab-btn { flex: 1; padding: 10px 4px; border: none; background: transparent; border-radius: 10px; font-size: 12px; font-weight: 600; color: #666; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px; white-space: nowrap; }
         .tab-btn.active { background: var(--primary); color: white; }
-        .quick-actions { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; padding: 8px 12px; background: white; margin: 8px 12px; border-radius: 16px; flex-shrink: 0; }
-        .action-btn { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px; border-radius: 12px; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; }
+        
+        /* Адаптивні кнопки статусів */
+        .quick-actions { 
+            display: grid; 
+            grid-template-columns: repeat(5, 1fr); 
+            gap: 6px; 
+            padding: 8px 12px; 
+            background: white; 
+            margin: 8px 12px; 
+            border-radius: 16px; 
+            flex-shrink: 0; 
+        }
+        .action-btn { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            gap: 4px; 
+            padding: 8px 2px; 
+            border-radius: 12px; 
+            cursor: pointer; 
+            border: 2px solid transparent; 
+            transition: all 0.15s; 
+            min-height: 60px;
+            justify-content: center;
+        }
         .action-btn:active { transform: scale(0.95); }
         .action-btn.active { background: #f0f4ff; border-color: var(--primary); }
-        .action-icon { font-size: 24px; line-height: 1; }
-        .action-label { font-size: 10px; font-weight: 600; color: #333; text-align: center; }
+        .action-icon { font-size: 20px; line-height: 1; }
+        .action-label { font-size: 9px; font-weight: 600; color: #333; text-align: center; line-height: 1.2; }
+        
+        /* Для ноутбуків — компактніший варіант */
+        @media (min-height: 800px) {
+            .action-btn { padding: 12px 4px; min-height: 70px; }
+            .action-icon { font-size: 24px; }
+            .action-label { font-size: 10px; }
+        }
+        
         .stats-bar { display: flex; gap: 8px; padding: 0 12px 8px; flex-shrink: 0; }
         .stat-pill { flex: 1; background: white; border-radius: 12px; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
         .stat-dot { width: 8px; height: 8px; border-radius: 50%; }
         .stat-label { font-size: 9px; color: #666; font-weight: 500; }
         .stat-num { font-size: 18px; font-weight: 700; color: #333; }
+        
         .content-area { flex: 1; overflow: hidden; position: relative; }
         .tab-content { position: absolute; inset: 0; overflow-y: auto; padding: 0 12px 80px; opacity: 0; visibility: hidden; transition: opacity 0.2s; }
         .tab-content.active { opacity: 1; visibility: visible; }
         .section-title { font-size: 12px; font-weight: 700; color: #8e8e93; text-transform: uppercase; padding: 12px 4px 8px; display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Графік присутності */
+        .timeline-container { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+        .timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .timeline-title { font-size: 16px; font-weight: 700; color: #333; }
+        .timeline-date { font-size: 13px; color: #666; background: #f2f2f7; padding: 6px 12px; border-radius: 12px; }
+        .timeline-person { margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 16px; }
+        .timeline-person:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .timeline-person-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .timeline-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--secondary)); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 14px; }
+        .timeline-name { font-weight: 600; font-size: 14px; }
+        .timeline-bar { 
+            height: 32px; 
+            background: #f2f2f7; 
+            border-radius: 8px; 
+            position: relative; 
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+        .timeline-segment { 
+            height: 100%; 
+            position: absolute; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 10px; 
+            font-weight: 600; 
+            color: white; 
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        .timeline-segment.in { background: var(--success); }
+        .timeline-segment.vz { background: var(--info); }
+        .timeline-segment.rz { background: var(--warning); }
+        .timeline-segment.lunch { background: #ff6b6b; }
+        .timeline-segment.meeting { background: #9b59b6; }
+        .timeline-segment.out { background: #95a5a6; }
+        .timeline-legend { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #666; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+        
         .person-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
         .person-card { background: white; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; position: relative; overflow: hidden; }
         .person-card:active { transform: scale(0.98); }
@@ -99,15 +194,17 @@
         .person-name { font-weight: 600; font-size: 14px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .person-time { font-size: 11px; color: #8e8e93; }
         .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; color: white; align-self: flex-start; }
+        
         .bottom-toolbar { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: none; gap: 12px; z-index: 300; background: rgba(255,255,255,0.98); padding: 8px; border-radius: 28px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
         .bottom-toolbar.visible { display: flex; }
         .tool-btn { width: 48px; height: 48px; border-radius: 50%; border: none; background: #f2f2f7; display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: all 0.2s; }
         .tool-btn:active { transform: scale(0.9); }
         .tool-btn.primary { background: var(--primary); color: white; }
         .tool-btn.danger { background: var(--danger); color: white; }
+        
         .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); opacity: 0; visibility: hidden; transition: all 0.2s; z-index: 400; }
         .sheet-overlay.active { opacity: 1; visibility: visible; }
-        .bottom-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: white; border-radius: 24px 24px 0 0; padding: 20px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 500; max-height: 70vh; }
+        .bottom-sheet { position: fixed; left: 0; right: 0; bottom: 0; background: white; border-radius: 24px 24px 0 0; padding: 20px; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 500; max-height: 70vh; overflow-y: auto; }
         .bottom-sheet.active { transform: translateY(0); }
         .sheet-handle { width: 40px; height: 5px; background: #c7c7cc; border-radius: 3px; margin: 0 auto 20px; }
         .sheet-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; text-align: center; color: #333; }
@@ -115,10 +212,11 @@
         .status-opt { aspect-ratio: 1; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
         .status-opt:active { transform: scale(0.95); }
         .status-opt.selected { border-color: var(--primary); transform: scale(1.05); }
-        .status-opt .icon { font-size: 28px; }
+        .status-opt .icon { font-size: 24px; }
         .sheet-input { width: 100%; padding: 14px; border: 2px solid #e5e5ea; border-radius: 12px; font-size: 16px; margin-bottom: 12px; outline: none; }
         .sheet-input:focus { border-color: var(--primary); }
         .sheet-btn { width: 100%; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 17px; font-weight: 600; cursor: pointer; }
+        
         .admin-form { background: white; border-radius: 16px; padding: 20px; margin-bottom: 12px; }
         .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .form-title { font-size: 16px; font-weight: 700; color: #333; }
@@ -148,6 +246,7 @@
         .role-reader { background: #f5f5f5; color: #616161; }
         .edit-hint { font-size: 11px; color: var(--primary); margin-left: 8px; opacity: 0; transition: opacity 0.2s; }
         .user-item:hover .edit-hint { opacity: 1; }
+        
         .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 2000; opacity: 0; transition: all 0.3s; pointer-events: none; }
         .toast.show { opacity: 1; }
         .hidden { display: none !important; }
@@ -212,20 +311,41 @@
                 <span id="headerName">--</span>
                 <span class="role-badge" id="headerRole">--</span>
             </div>
+            <!-- Кнопка виходу -->
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>Вийти</span>
+            </button>
         </div>
 
         <div class="tab-nav" id="tabNav">
             <button class="tab-btn active" onclick="switchTab('personnel')"><span>👥</span> Персонал</button>
-            <button class="tab-btn" onclick="switchTab('stats')"><span>📊</span> Статистика</button>
-            <button class="tab-btn admin-only" onclick="switchTab('admin')"><span>⚙️</span> Управління</button>
+            <button class="tab-btn" onclick="switchTab('timeline')"><span>📈</span> Графік</button>
+            <button class="tab-btn" onclick="switchTab('stats')"><span>📊</span> Стат.</button>
+            <button class="tab-btn admin-only" onclick="switchTab('admin')"><span>⚙️</span> Адмін</button>
         </div>
 
         <div class="quick-actions editor-only" id="quickActions">
-            <div class="action-btn" id="btn-in" onclick="applyQuickStatus('in', '🏢 В приміщенні')"><span class="action-icon">🏢</span><span class="action-label">В приміщенні</span></div>
-            <div class="action-btn" id="btn-vz" onclick="applyQuickStatus('vz', '📞 ВЗ')"><span class="action-icon">📞</span><span class="action-label">ВЗ</span></div>
-            <div class="action-btn" id="btn-rz" onclick="applyQuickStatus('rz', '📋 РЗ')"><span class="action-icon">📋</span><span class="action-label">РЗ</span></div>
-            <div class="action-btn" id="btn-lunch" onclick="applyQuickStatus('lunch', '🍽️ Обід')"><span class="action-icon">🍽️</span><span class="action-label">Обід</span></div>
-            <div class="action-btn" id="btn-custom" onclick="openCustomStatus()"><span class="action-icon">⚡</span><span class="action-label">Інше</span></div>
+            <div class="action-btn" id="btn-in" onclick="applyQuickStatus('in', '🏢 В приміщенні')">
+                <span class="action-icon">🏢</span>
+                <span class="action-label">В приміщ.</span>
+            </div>
+            <div class="action-btn" id="btn-vz" onclick="applyQuickStatus('vz', '📞 ВЗ')">
+                <span class="action-icon">📞</span>
+                <span class="action-label">ВЗ</span>
+            </div>
+            <div class="action-btn" id="btn-rz" onclick="applyQuickStatus('rz', '📋 РЗ')">
+                <span class="action-icon">📋</span>
+                <span class="action-label">РЗ</span>
+            </div>
+            <div class="action-btn" id="btn-lunch" onclick="applyQuickStatus('lunch', '🍽️ Обід')">
+                <span class="action-icon">🍽️</span>
+                <span class="action-label">Обід</span>
+            </div>
+            <div class="action-btn" id="btn-custom" onclick="openCustomStatus()">
+                <span class="action-icon">⚡</span>
+                <span class="action-label">Інше</span>
+            </div>
         </div>
 
         <div class="stats-bar">
@@ -236,15 +356,24 @@
         </div>
 
         <div class="content-area">
+            <!-- Personnel Tab -->
             <div class="tab-content active" id="tab-personnel">
                 <div class="section-title"><span>ПЕРСОНАЛ</span></div>
                 <div class="person-grid" id="personGrid"></div>
             </div>
 
+            <!-- Timeline Tab (NEW) -->
+            <div class="tab-content" id="tab-timeline">
+                <div class="section-title"><span>ГРАФІК ПРИСУТНОСТІ</span></div>
+                <div id="timelineContainer"></div>
+            </div>
+
+            <!-- Stats Tab -->
             <div class="tab-content" id="tab-stats">
                 <div class="stats-container" id="statsContainer"></div>
             </div>
 
+            <!-- Admin Tab -->
             <div class="tab-content" id="tab-admin">
                 <div class="admin-form">
                     <div class="form-header">
@@ -274,7 +403,6 @@
 
                 <div style="padding: 20px;">
                     <button class="form-btn primary" onclick="exportData()" style="width: 100%; margin-bottom: 12px; background: #333;">📊 Експорт CSV</button>
-                    <button class="form-btn danger" onclick="logout()" style="width: 100%;">🚪 Вийти з системи</button>
                 </div>
             </div>
         </div>
@@ -318,7 +446,7 @@
 // Global variables
 let db, dbRef, dbGet, dbSet, dbUpdate, dbOnValue, dbServerTimestamp;
 let auth, signInAnon, onAuthStateChange;
-let currentUser = null; // { uid, name, role, pin }
+let currentUser = null;
 let currentPin = '';
 let selectedRole = 'admin';
 let selectedPersons = new Set();
@@ -330,7 +458,7 @@ let users = [];
 let personnel = [];
 let usersMap = {};
 let isFirstLogin = false;
-let firebaseUser = null; // Firebase Auth user
+let firebaseUser = null;
 
 // Initialize
 window.addEventListener('load', async () => {
@@ -356,7 +484,6 @@ window.addEventListener('load', async () => {
     signInAnon = window.signInAnonymously;
     onAuthStateChange = window.onAuthStateChanged;
     
-    // Анонімна авторизація одразу (для читання бази)
     try {
         await signInAnon(auth);
     } catch (e) {
@@ -372,7 +499,6 @@ window.addEventListener('load', async () => {
     });
 });
 
-// Check first login
 async function checkFirstLogin() {
     showLoading(true);
     try {
@@ -380,7 +506,6 @@ async function checkFirstLogin() {
         
         if (!snapshot.exists()) {
             isFirstLogin = true;
-            // Default admin: PIN 1111
             const adminUid = generateUid();
             const adminUser = {
                 uid: adminUid,
@@ -426,25 +551,18 @@ async function createPersonnelRecord(userId, userName) {
     return personnelId;
 }
 
-// Setup listeners
 function setupListeners() {
-    // Users listener - public read for PIN lookup
     dbOnValue(dbRef(db, 'users'), (snapshot) => {
         if (snapshot.exists()) {
             const data = snapshot.val();
             users = Object.values(data).filter(u => u.active !== false);
             usersMap = {};
-            users.forEach(u => {
-                usersMap[u.pin] = u; // Index by PIN for login
-            });
+            users.forEach(u => usersMap[u.pin] = u);
             
-            if (currentUser) {
-                renderAdminList();
-            }
+            if (currentUser) renderAdminList();
         }
     });
 
-    // Personnel listener - requires auth
     dbOnValue(dbRef(db, 'personnel'), (snapshot) => {
         if (snapshot.exists()) {
             personnel = Object.values(snapshot.val());
@@ -455,6 +573,7 @@ function setupListeners() {
         if (document.getElementById('mainApp').classList.contains('active')) {
             renderGrid();
             updateStats();
+            renderTimeline(); // Оновлюємо графік при зміні даних
         }
     });
 }
@@ -487,15 +606,10 @@ async function checkPin() {
     const user = usersMap[currentPin];
     
     if (user && user.active !== false) {
-        // Успішна авторизація - зберігаємо роль
         currentUser = user;
-        
         document.getElementById('pinDisplay').classList.add('success');
         document.getElementById('waterFill').style.height = '100%';
-        
-        setTimeout(() => {
-            login(user);
-        }, 400);
+        setTimeout(() => login(user), 400);
     } else {
         document.getElementById('pinDisplay').classList.add('error');
         document.getElementById('waterFill').style.background = 'rgba(255, 59, 48, 0.4)';
@@ -510,7 +624,6 @@ async function checkPin() {
 }
 
 function login(user) {
-    // Налаштування UI залежно від ролі
     setupUIForRole(user.role);
     
     document.getElementById('loginScreen').style.display = 'none';
@@ -518,7 +631,6 @@ function login(user) {
     document.getElementById('headerName').textContent = user.name.split(' ')[0];
     document.getElementById('headerRole').textContent = user.role;
     
-    // Показуємо індикатор ролі
     const roleInd = document.getElementById('roleIndicator');
     roleInd.textContent = user.role;
     roleInd.className = 'role-indicator ' + user.role;
@@ -528,8 +640,8 @@ function login(user) {
     updateStats();
     renderStats();
     renderAdminList();
+    renderTimeline(); // Рендеримо графік при вході
     
-    // Reset PIN
     currentPin = '';
     updatePin();
     document.getElementById('waterFill').style.height = '0%';
@@ -545,36 +657,22 @@ function login(user) {
 }
 
 function setupUIForRole(role) {
-    // Сховати/показати елементи залежно від ролі
-    
-    // Admin: все видно
-    // Editor: quick actions, toolbar, personnel tab (edit), stats
-    // Reader: тільки перегляд (stats, personnel view-only)
-    
     const adminOnly = document.querySelectorAll('.admin-only');
     const editorOnly = document.querySelectorAll('.editor-only');
-    const tabNav = document.getElementById('tabNav');
     
     if (role === 'reader') {
-        // Читач: тільки перегляд
         editorOnly.forEach(el => el.style.display = 'none');
         adminOnly.forEach(el => el.style.display = 'none');
-        
-        // Залишаємо тільки Personnel (view-only) та Stats
-        // Прибираємо можливість редагування в Personnel
     } else if (role === 'editor') {
-        // Редактор: може змінювати статуси, але не управляти користувачами
         editorOnly.forEach(el => el.style.display = 'flex');
         adminOnly.forEach(el => el.style.display = 'none');
     } else if (role === 'admin') {
-        // Адмін: повний доступ
         editorOnly.forEach(el => el.style.display = 'flex');
         adminOnly.forEach(el => el.style.display = 'flex');
     }
 }
 
 function switchTab(tab) {
-    // Перевірка прав для табів
     if (tab === 'admin' && currentUser?.role !== 'admin') {
         showToast('⛔ Тільки для адміністраторів');
         return;
@@ -588,15 +686,14 @@ function switchTab(tab) {
     
     if (tab === 'stats') renderStats();
     if (tab === 'admin') renderAdminList();
+    if (tab === 'timeline') renderTimeline();
 }
 
 // Status management
 async function applyQuickStatus(status, text) {
     if (!currentUser) return;
     
-    // Перевірка прав: reader не може змінювати статуси (крім себе - реалізовано в rules)
     if (currentUser.role === 'reader') {
-        // Reader може змінити тільки свій статус
         const myPersonnel = personnel.find(p => p.userId === currentUser.uid);
         if (myPersonnel) {
             await updateStatus([myPersonnel.pid], status, text);
@@ -627,7 +724,6 @@ async function updateStatus(targets, status, text) {
             const person = personnel.find(p => p.pid === pid);
             if (!person) continue;
             
-            // Save to history
             if (person.current) {
                 const historyEntry = {
                     status: person.current.status,
@@ -644,7 +740,6 @@ async function updateStatus(targets, status, text) {
                 await dbSet(dbRef(db, historyPath), existing);
             }
             
-            // Update current
             await dbUpdate(dbRef(db), {
                 [`personnel/${pid}/current/status`]: status,
                 [`personnel/${pid}/current/statusText`]: text,
@@ -698,9 +793,7 @@ function renderGrid() {
     grid.innerHTML = '';
     
     const isReader = currentUser?.role === 'reader';
-    const isEditor = currentUser?.role === 'editor';
-    const isAdmin = currentUser?.role === 'admin';
-    const canEdit = isEditor || isAdmin;
+    const canEdit = currentUser?.role === 'editor' || currentUser?.role === 'admin';
     
     personnel.forEach(p => {
         const isSel = selectedPersons.has(p.pid);
@@ -711,15 +804,12 @@ function renderGrid() {
         const card = document.createElement('div');
         card.className = 'person-card ' + (isSel ? 'selected' : '');
         
-        // Reader: тільки перегляд, без вибору
-        // Editor/Admin: вибір та редагування
         if (canEdit) {
             card.onclick = () => toggleSelect(p.pid);
             card.ondblclick = () => {
                 if (selectedPersons.size === 0) openSheet([p.pid]);
             };
         } else {
-            // Reader: click показує деталі (без зміни статусу)
             card.onclick = () => showPersonDetails(p);
             card.style.cursor = 'default';
         }
@@ -733,7 +823,7 @@ function renderGrid() {
                 </div>
             </div>
             <span class="status-badge" style="background:${getColor(status)};">${statusText}</span>
-            ${isReader && p.userId === currentUser?.uid ? '<div style="font-size: 10px; color: var(--info); margin-top: 4px;">👤 Це ви (можете змінити статус)</div>' : ''}
+            ${isReader && p.userId === currentUser?.uid ? '<div style="font-size: 10px; color: var(--info); margin-top: 4px;">👤 Це ви</div>' : ''}
         `;
         
         grid.appendChild(card);
@@ -741,7 +831,6 @@ function renderGrid() {
 }
 
 function showPersonDetails(person) {
-    // Модальне вікно з детальною інформацією для reader
     const history = person.history ? Object.entries(person.history).flatMap(([date, entries]) => 
         entries.map(e => ({...e, date}))
     ) : [];
@@ -755,7 +844,7 @@ function showPersonDetails(person) {
 }
 
 function toggleSelect(id) {
-    if (currentUser?.role === 'reader') return; // Додатковий захист
+    if (currentUser?.role === 'reader') return;
     
     selectedPersons.has(id) ? selectedPersons.delete(id) : selectedPersons.add(id);
     updateSelUI();
@@ -781,6 +870,111 @@ function updateStats() {
     document.getElementById('statOut').textContent = personnel.filter(p => ['home','out','hospital','trip'].includes(p.current?.status)).length;
 }
 
+// NEW: Timeline / Графік присутності
+function renderTimeline() {
+    const container = document.getElementById('timelineContainer');
+    if (!container) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    const dayStart = new Date();
+    dayStart.setHours(8, 0, 0, 0); // Початок робочого дня 8:00
+    const dayEnd = new Date();
+    dayEnd.setHours(18, 0, 0, 0); // Кінець 18:00
+    const totalMinutes = (dayEnd - dayStart) / 60000; // 600 хвилин
+    
+    let html = `
+        <div class="timeline-container">
+            <div class="timeline-header">
+                <span class="timeline-title">📅 Сьогодні, ${new Date().toLocaleDateString('uk-UA')}</span>
+                <span class="timeline-date">🕐 08:00 - 18:00</span>
+            </div>
+    `;
+    
+    // Легенда
+    html += `
+        <div class="timeline-legend">
+            <div class="legend-item"><div class="legend-dot" style="background: var(--success);"></div>В приміщенні</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--info);"></div>ВЗ</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--warning);"></div>РЗ/Обід</div>
+            <div class="legend-item"><div class="legend-dot" style="background: #95a5a6;"></div>Відсутній</div>
+        </div>
+    `;
+    
+    // Дані для кожного співробітника
+    personnel.forEach(p => {
+        const history = p.history?.[today] || [];
+        const segments = buildTimelineSegments(history, dayStart, dayEnd, totalMinutes, p.current);
+        
+        html += `
+            <div class="timeline-person">
+                <div class="timeline-person-header">
+                    <div class="timeline-avatar">${p.name[0]}</div>
+                    <div class="timeline-name">${p.name}</div>
+                </div>
+                <div class="timeline-bar">
+                    ${segments}
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function buildTimelineSegments(history, dayStart, dayEnd, totalMinutes, current) {
+    if (!history.length && !current) {
+        return `<div class="timeline-segment out" style="left: 0; width: 100%;">Немає даних</div>`;
+    }
+    
+    let segments = [];
+    let lastTime = dayStart;
+    
+    // Сортуємо історію
+    const sortedHistory = [...history].sort((a, b) => new Date(a.from) - new Date(b.from));
+    
+    // Додаємо поточний статус як "відкритий" сегмент
+    if (current && current.since) {
+        sortedHistory.push({
+            from: current.since,
+            to: new Date().toISOString(),
+            status: current.status,
+            statusText: current.statusText,
+            isCurrent: true
+        });
+    }
+    
+    sortedHistory.forEach((entry, index) => {
+        const entryStart = new Date(entry.from);
+        const entryEnd = entry.to ? new Date(entry.to) : new Date();
+        
+        // Пропускаємо якщо поза межами робочого дня
+        if (entryEnd < dayStart || entryStart > dayEnd) return;
+        
+        const clampedStart = entryStart < dayStart ? dayStart : entryStart;
+        const clampedEnd = entryEnd > dayEnd ? dayEnd : entryEnd;
+        
+        const startMinutes = (clampedStart - dayStart) / 60000;
+        const durationMinutes = (clampedEnd - clampedStart) / 60000;
+        
+        const left = (startMinutes / totalMinutes) * 100;
+        const width = (durationMinutes / totalMinutes) * 100;
+        
+        const colorClass = entry.status || 'out';
+        const label = durationMinutes > 30 ? entry.statusText?.split(' ')[0] || '' : '';
+        
+        segments.push(`
+            <div class="timeline-segment ${colorClass}" 
+                 style="left: ${left}%; width: ${width}%;"
+                 title="${entry.statusText || 'Невідомо'}: ${clampedStart.toLocaleTimeString('uk-UA')} - ${clampedEnd.toLocaleTimeString('uk-UA')}">
+                ${label}
+            </div>
+        `);
+    });
+    
+    return segments.join('') || `<div class="timeline-segment out" style="left: 0; width: 100%;">Немає даних</div>`;
+}
+
 // Statistics
 function renderStats() {
     const container = document.getElementById('statsContainer');
@@ -795,7 +989,6 @@ function renderStats() {
     
     let html = '<div style="display: grid; gap: 12px;">';
     
-    // Загальна статистика
     html += `
         <div style="background: white; border-radius: 16px; padding: 16px;">
             <div style="font-size: 14px; font-weight: 700; color: #666; margin-bottom: 12px; text-transform: uppercase;">📊 Загальна ситуація</div>
@@ -812,7 +1005,6 @@ function renderStats() {
         </div>
     `;
     
-    // Деталізація по статусах
     Object.entries(byStatus).forEach(([status, people]) => {
         const statusCode = people[0].current?.status || 'out';
         
@@ -832,7 +1024,7 @@ function renderStats() {
 }
 
 function getColor(s) {
-    const c = {in:'#34c759', vz:'#007aff', rz:'#ff9500', lunch:'#ff9500', meeting:'#af52de', home:'#ff3b30', out:'#999', custom:'#667eea'};
+    const c = {in:'#34c759', vz:'#007aff', rz:'#ff9500', lunch:'#ff6b6b', meeting:'#9b59b6', home:'#ff3b30', out:'#95a5a6', custom:'#667eea', trip:'#ffd600', hospital:'#00bfa5'};
     return c[s] || '#999';
 }
 
@@ -895,7 +1087,7 @@ async function applyStatus() {
     clearSelection();
 }
 
-// Admin functions (тільки для admin)
+// Admin functions
 function setRole(role) {
     selectedRole = role;
     document.querySelectorAll('.role-btn').forEach(btn => {
@@ -958,7 +1150,6 @@ async function saveUser() {
     showSync(true);
     try {
         if (editingUser) {
-            // Update
             if (pin !== editingUser.pin && usersMap[pin]) {
                 showToast('⛔ Новий PIN вже зайнятий');
                 return;
@@ -990,7 +1181,6 @@ async function saveUser() {
             showToast('✅ Зміни збережено!');
             cancelEdit();
         } else {
-            // Create
             if (usersMap[pin]) {
                 showToast('⛔ PIN вже існує');
                 return;
@@ -1085,6 +1275,8 @@ async function exportData() {
 }
 
 function logout() {
+    if (!confirm('Вийти з системи?')) return;
+    
     currentUser = null;
     selectedPersons.clear();
     
@@ -1093,7 +1285,6 @@ function logout() {
     document.getElementById('toolbar').classList.remove('visible');
     document.getElementById('roleIndicator').classList.add('hidden');
     
-    // Reset tabs
     document.querySelectorAll('.tab-btn').forEach((btn, i) => btn.classList.toggle('active', i === 0));
     document.querySelectorAll('.tab-content').forEach((c, i) => c.classList.toggle('active', i === 0));
     
@@ -1102,10 +1293,11 @@ function logout() {
     updatePin();
     document.getElementById('waterFill').style.height = '0%';
     
-    // Показуємо всі елементи знову для наступного входу
     document.querySelectorAll('.admin-only, .editor-only').forEach(el => {
         el.style.display = '';
     });
+    
+    showToast('👋 До побачення!');
 }
 
 function showLoading(show) {
